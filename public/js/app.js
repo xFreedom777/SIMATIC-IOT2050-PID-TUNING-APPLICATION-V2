@@ -609,9 +609,9 @@ function initChart() {
     data: {
       labels: [],
       datasets: [
-        { label:'SP',     data:[], borderColor:'#00d4ff', borderDash:[6,3], borderWidth:1.5, pointRadius:0, lineTension:0.3 },
-        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2,    pointRadius:0, lineTension:0.3 },
-        { label:'Output', data:[], borderColor:'#f59e0b', borderDash:[2,2], borderWidth:1.5, pointRadius:0, lineTension:0.3, yAxisID:'y2' },
+        { label:'SP',     data:[], borderColor:'#00d4ff', borderWidth:1.5 },
+        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2 },
+        { label:'Output', data:[], borderColor:'#f59e0b', borderWidth:1.5, yAxisID:'y2' },
       ],
     },
     options: {
@@ -639,10 +639,10 @@ function pushChartData(blockId, sp, pv, output, ts) {
   const maxPts = State.chartWindow * 2;
   if (cd.sp.length > maxPts) { cd.sp.shift(); cd.pv.shift(); cd.out.shift(); cd.labels.shift(); }
   if (blockId === State.selectedBlockId) {
-    State.chart.data.labels           = [...cd.labels];
-    State.chart.data.datasets[0].data = [...cd.sp];
-    State.chart.data.datasets[1].data = [...cd.pv];
-    State.chart.data.datasets[2].data = [...cd.out];
+    State.chart.data.labels           = cd.labels;
+    State.chart.data.datasets[0].data = cd.sp;
+    State.chart.data.datasets[1].data = cd.pv;
+    State.chart.data.datasets[2].data = cd.out;
     State.chart.update(0);
   }
 }
@@ -674,11 +674,11 @@ function rebuildChart(blockId) {
   if (!State.chart || typeof Chart === 'undefined') return;
   const cd = State.chartData[blockId];
   if (!cd) return;
-  State.chart.data.labels           = [...cd.labels];
-  State.chart.data.datasets[0].data = [...cd.sp];
-  State.chart.data.datasets[1].data = [...cd.pv];
-  State.chart.data.datasets[2].data = [...cd.out];
-  State.chart.update('none');
+  State.chart.data.labels           = cd.labels;
+  State.chart.data.datasets[0].data = cd.sp;
+  State.chart.data.datasets[1].data = cd.pv;
+  State.chart.data.datasets[2].data = cd.out;
+  State.chart.update(0);
 }
 
 function setChartWindow(val) {

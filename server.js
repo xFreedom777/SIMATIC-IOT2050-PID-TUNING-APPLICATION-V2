@@ -481,11 +481,13 @@ wss.on('connection', (ws) => {
 // Shutdown Endpoint
 // ═══════════════════════════════════════════════
 app.post('/api/shutdown', (req, res) => {
-  console.log('[System] Shutdown requested via Web UI.');
+  console.log('[System] Shutdown requested via Web UI. Waiting 10s...');
   res.json({ status: 'shutting_down' });
-  require('child_process').exec('poweroff', (err) => {
-    if (err) console.error('Shutdown error:', err);
-  });
+  setTimeout(() => {
+    require('child_process').exec('poweroff', (err) => {
+      if (err) console.error('Shutdown error:', err);
+    });
+  }, 10000); // 10 seconds delay
 });
 
 // ═══════════════════════════════════════════════

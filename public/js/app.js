@@ -1013,11 +1013,38 @@ function shutdownSystem() {
       .then(data => {
         if (data.status === 'shutting_down') {
           document.body.innerHTML = `
-            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#000; color:#ef4444; font-family:sans-serif; text-align:center;">
-              <h1 style="font-size: 50px; margin-bottom: 20px;">SYSTEM SHUTTING DOWN</h1>
-              <p style="font-size: 24px; color: #8b9ab5;">Please wait 10 seconds before turning off the power.</p>
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%); color:#fff; font-family: 'Inter', sans-serif; text-align:center;">
+              <div style="font-size: 60px; font-weight: 900; letter-spacing: 6px; background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gold-shine 3s linear infinite; filter: drop-shadow(0 0 25px rgba(252, 246, 186, 0.4)); margin-bottom: 10px;">
+                MITR PHOL
+              </div>
+              <div style="color: #bf953f; font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px rgba(191, 149, 63, 0.5); margin-bottom: 50px;">
+                SYSTEM SHUTTING DOWN
+              </div>
+              
+              <div style="width: 50px; height: 50px; border: 4px solid rgba(191,149,63,0.3); border-top-color: #fcf6ba; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+              
+              <div id="shutdownCountdown" style="margin-top: 40px; font-size: 24px; color: #ef4444; font-weight: bold; text-shadow: 0 0 15px rgba(239, 68, 68, 0.5); letter-spacing: 2px;">
+                Powering off in 10s...
+              </div>
             </div>
+            <style>
+              @keyframes spin { 100% { transform: rotate(360deg); } }
+              @keyframes gold-shine { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+            </style>
           `;
+          let timeLeft = 10;
+          const cd = document.getElementById('shutdownCountdown');
+          const timer = setInterval(() => {
+            timeLeft--;
+            if (timeLeft > 0) {
+              cd.innerText = \`Powering off in \${timeLeft}s...\`;
+            } else {
+              clearInterval(timer);
+              cd.style.color = '#10b981';
+              cd.style.textShadow = '0 0 15px rgba(16, 185, 129, 0.5)';
+              cd.innerText = "SAFE TO TURN OFF POWER";
+            }
+          }, 1000);
         }
       })
       .catch(err => toast('Connection error during shutdown.', 'error'));

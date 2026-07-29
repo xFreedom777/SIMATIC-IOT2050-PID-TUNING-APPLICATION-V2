@@ -73,7 +73,7 @@ window.onload = async () => {
     initDashCharts();
   } catch (err) {
     console.error('Chart init failed:', err);
-    toast('Chart initialization failed on this device.', 'warning');
+    toast('Chart Error: ' + err.message, 'error', 30000); // 30 seconds
   }
   connectWebSocket();
   await fetchStatus();
@@ -88,7 +88,7 @@ window.onload = async () => {
       else toast('Unlock first to change PIN', 'warning');
     });
   }
-  // Apply initial lock state
+  
   applyLockState();
 };
 
@@ -104,7 +104,7 @@ function connectWebSocket() {
     State.ws = new WebSocket(`${proto}//${host}${port}/`);
     State.ws.onopen    = () => {
       console.log('[WS] Connected');
-      toast('WebSocket Connected!', 'success');
+      toast('WebSocket Connected!', 'success', 2000);
     };
     State.ws.onmessage = (evt) => {
       const msg = JSON.parse(evt.data);
@@ -114,7 +114,7 @@ function connectWebSocket() {
     };
     State.ws.onerror = (err) => {
       console.error('[WS] Error:', err);
-      toast('WebSocket Error! Connection failed.', 'error');
+      toast('WebSocket Error! Connection failed.', 'error', 10000);
     };
     State.ws.onclose = () => {
       toast('WebSocket Disconnected. Reconnecting...', 'warning');
@@ -609,9 +609,9 @@ function initChart() {
     data: {
       labels: [],
       datasets: [
-        { label:'SP',     data:[], borderColor:'#00d4ff', borderDash:[6,3], borderWidth:1.5, pointRadius:0, tension:0.3 },
-        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2,    pointRadius:0, tension:0.3 },
-        { label:'Output', data:[], borderColor:'#f59e0b', borderDash:[2,2], borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'y2' },
+        { label:'SP',     data:[], borderColor:'#00d4ff', borderDash:[6,3], borderWidth:1.5, pointRadius:0, lineTension:0.3 },
+        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2,    pointRadius:0, lineTension:0.3 },
+        { label:'Output', data:[], borderColor:'#f59e0b', borderDash:[2,2], borderWidth:1.5, pointRadius:0, lineTension:0.3, yAxisID:'y2' },
       ],
     },
     options: {
@@ -643,7 +643,7 @@ function pushChartData(blockId, sp, pv, output, ts) {
     State.chart.data.datasets[0].data = [...cd.sp];
     State.chart.data.datasets[1].data = [...cd.pv];
     State.chart.data.datasets[2].data = [...cd.out];
-    State.chart.update('none');
+    State.chart.update(0);
   }
 }
 
@@ -771,12 +771,20 @@ function setKPI(id, value, quality='') {
 // ── Dashboard Charts ──────────────────────────
 function initDashCharts() {
   const barOpts = (color) => ({
-    responsive:true, maintainAspectRatio:false, animation:false,
-    plugins:{ legend:{ display:false } },
-    scales:{
-      x:{ ticks:{ color:'#4a5a75', font:{size:9}, maxTicksLimit:8 }, grid:{ color:'rgba(255,255,255,0.04)' } },
-      y:{ ticks:{ color:'#4a5a75', font:{size:9} }, grid:{ color:'rgba(255,255,255,0.04)' } },
-    },
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    legend: { display: false },
+    scales: {
+      xAxes: [{
+        ticks: { fontColor: '#4a5a75', fontSize: 9, maxTicksLimit: 8 },
+        gridLines: { color: 'rgba(255,255,255,0.04)' }
+      }],
+      yAxes: [{
+        ticks: { fontColor: '#4a5a75', fontSize: 9 },
+        gridLines: { color: 'rgba(255,255,255,0.04)' }
+      }]
+    }
   });
 
   State.dashCharts.error = new Chart(
@@ -795,7 +803,7 @@ function updateErrorChart(errors) {
   errors.forEach(e=>{ const idx=Math.min(bins-1,Math.floor((e-min)/range*bins)); counts[idx]++; });
   State.dashCharts.error.data.labels = counts.map((_,i)=>(min+(i/bins)*range).toFixed(1));
   State.dashCharts.error.data.datasets[0].data = counts;
-  State.dashCharts.error.update('none');
+  State.dashCharts.error.update(0);
 }
 
 function updateOutputChart(outputs) {
@@ -803,7 +811,7 @@ function updateOutputChart(outputs) {
   outputs.forEach(v=>{ const idx=Math.min(bins-1,Math.floor(v/100*bins)); counts[idx]++; });
   State.dashCharts.output.data.labels = counts.map((_,i)=>(i*10)+'%');
   State.dashCharts.output.data.datasets[0].data = counts;
-  State.dashCharts.output.update('none');
+  State.dashCharts.output.update(0);
 }
 
 // ══════════════════════════════════════════════
@@ -1029,13 +1037,13 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 // ══════════════════════════════════════════════
 // Toast
 // ══════════════════════════════════════════════
-function toast(msg, type = 'info') {
+function toast(msg, type = 'info', duration = 3200) {
   const c  = document.getElementById('toastContainer');
   const el = document.createElement('div');
   el.className   = `toast ${type}`;
   el.textContent = msg;
   c.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
+  setTimeout(() => el.remove(), duration);
 }
 
 // ════════════════════════════════════════════════

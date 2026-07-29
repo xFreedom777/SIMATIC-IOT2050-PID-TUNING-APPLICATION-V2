@@ -96,16 +96,25 @@ function connectWebSocket() {
     let host = location.hostname === 'localhost' ? '127.0.0.1' : location.hostname;
     let port = location.port ? ':' + location.port : '';
     
-    State.ws = new WebSocket(`${proto}//${host}${port}`);
-    State.ws.onopen    = () => console.log('[WS] Connected');
+    State.ws = new WebSocket(`${proto}//${host}${port}/`);
+    State.ws.onopen    = () => {
+      console.log('[WS] Connected');
+      toast('WebSocket Connected!', 'success');
+    };
     State.ws.onmessage = (evt) => {
       const msg = JSON.parse(evt.data);
       if (msg.type === 'status') onStatus(msg);
       if (msg.type === 'data')   onData(msg);
       if (msg.type === 'error')  { toast(msg.message, 'error'); }
     };
-    State.ws.onerror = (err) => console.error('[WS] Error:', err);
-    State.ws.onclose = () => setTimeout(connectWebSocket, 3000);
+    State.ws.onerror = (err) => {
+      console.error('[WS] Error:', err);
+      toast('WebSocket Error! Connection failed.', 'error');
+    };
+    State.ws.onclose = () => {
+      toast('WebSocket Disconnected. Reconnecting...', 'warning');
+      setTimeout(connectWebSocket, 3000);
+    };
   } catch (err) {
     console.error('[WS] Setup Error:', err);
     setTimeout(connectWebSocket, 5000);

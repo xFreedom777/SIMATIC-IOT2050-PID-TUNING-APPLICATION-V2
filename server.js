@@ -489,6 +489,29 @@ app.post('/api/shutdown', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════
+// Set System Time Endpoint
+// ═══════════════════════════════════════════════
+app.post('/api/system/time', (req, res) => {
+  const { datetime } = req.body;
+  if (!datetime) return res.status(400).json({ error: 'Datetime required' });
+  const parts = datetime.split(' ');
+  if (parts.length !== 2) return res.status(400).json({ error: 'Format must be DD/MM/YYYY HH:MM:SS' });
+  const dateParts = parts[0].split('/');
+  if (dateParts.length !== 3) return res.status(400).json({ error: 'Invalid date format' });
+  
+  const linuxDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${parts[1]}`;
+  const cmd = `timedatectl set-ntp false && timedatectl set-timezone Asia/Bangkok && date -s "${linuxDate}" && hwclock -w`;
+  
+  require('child_process').exec(cmd, (err, stdout, stderr) => {
+    if (err) {
+      console.error('Time set error:', err);
+      return res.status(500).json({ error: 'Failed to set time. Must run as root.' });
+    }
+    res.json({ success: true });
+  });
+});
+
+// ═══════════════════════════════════════════════
 // Start Server
 // ═══════════════════════════════════════════════
 server.listen(PORT, () => {

@@ -208,7 +208,8 @@
         <button class="pid-mode-btn" id="modeAuto"     onclick="setPIDMode(3)">▶ Auto</button>
         <button class="pid-mode-btn" id="modeManual"   onclick="setPIDMode(4)">✋ Manual</button>
         <div class="spacer"></div>
-        <span class="text-xs" id="sysDateTime" style="margin-right: 15px; font-weight: 500; color: var(--text-2); letter-spacing: 0.5px;">Date: --/--/---- Time: --:--:--</span>
+        <span class="text-xs" id="sysDateTime" style="margin-right: 10px; font-weight: 500; color: var(--text-2); letter-spacing: 0.5px;">Date: --/--/---- Time: --:--:--</span>
+        <button class="btn btn-ghost btn-xs" onclick="openTimeModal()" title="Set System Time" style="margin-right: 15px; padding: 0 5px; font-size: 14px;">⚙</button>
         <span class="text-xs text-muted" id="stateLabel">State: —</span>
         <button class="btn btn-xs btn-ghost" onclick="readAllParams()" id="readBtn" disabled>↻ Read PLC</button>
         <button class="btn btn-xs btn-danger" onclick="resetError()" id="resetErrBtn" style="display:none">⚠ Reset Error</button>
@@ -606,5 +607,20 @@
 </script>
 
 <script src="/js/app.js"></script>
+  <!-- Time Setup Modal -->
+  <div class="modal-overlay" id="timeModal">
+    <div class="modal">
+      <h2>⚙ Set System Time</h2>
+      <div class="form-group" style="margin-top: 15px;">
+        <label>Date & Time (DD/MM/YYYY HH:MM:SS)</label>
+        <input class="input" id="timeInput" type="text" placeholder="29/07/2026 18:30:00">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('timeModal')">Cancel</button>
+        <button class="btn btn-cyan" onclick="saveSystemTime()">Save to IOT2050</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

@@ -200,7 +200,10 @@ async function api(method, path, body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(path, opts);
-  const data = await res.json();
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { throw new Error('Server Error: ' + text.substring(0, 80)); }
   if (!res.ok) throw new Error(data.error || 'API error');
   return data;
 }
@@ -1018,5 +1021,33 @@ function shutdownSystem() {
         }
       })
       .catch(err => toast('Connection error during shutdown.', 'error'));
+  }
+}
+
+// ════════════════════════════════════════════════
+// System Time Setup
+// ════════════════════════════════════════════════
+function openTimeModal() {
+  const dt = new Date();
+  const d = String(dt.getDate()).padStart(2, '0');
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const y = dt.getFullYear();
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const mm = String(dt.getMinutes()).padStart(2, '0');
+  const ss = String(dt.getSeconds()).padStart(2, '0');
+  document.getElementById('timeInput').value = `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
+  openModal('timeModal');
+}
+
+async function saveSystemTime() {
+  const val = document.getElementById('timeInput').value.trim();
+  try {
+    const data = await api('POST', '/api/system/time', { datetime: val });
+    if (data.success) {
+      toast('System time updated successfully!', 'success');
+      closeModal('timeModal');
+    }
+  } catch (err) {
+    toast(err.message, 'error');
   }
 }

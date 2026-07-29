@@ -874,9 +874,14 @@ async function doStepTest() {
 // DB Offset Config Modal
 // ══════════════════════════════════════════════
 function openOffsetModal() {
+  if (!State.selectedBlockId) return toast('Select a block first', 'warning');
+  const blockOffsets = State.blocks[State.selectedBlockId].offsets || {};
+  
+  // Sync global currentOffsets so saveOffsets() works correctly if we just view and save
+  currentOffsets = { ...DEFAULT_OFFSETS, ...blockOffsets };
+
   document.getElementById('offsetTableBody').innerHTML = OFFSET_DEFS.map(def => {
     let val = currentOffsets[def.key];
-    if (val === undefined || val === null) val = DEFAULT_OFFSETS[def.key];
     if (val === undefined || val === null) val = 0;
     return `
     <tr>

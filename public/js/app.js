@@ -1037,7 +1037,7 @@ function shutdownSystem() {
           const timer = setInterval(() => {
             timeLeft--;
             if (timeLeft > 0) {
-              cd.innerText = \`Powering off in \${timeLeft}s...\`;
+              cd.innerText = `Powering off in ${timeLeft}s...`;
             } else {
               clearInterval(timer);
               cd.style.color = '#10b981';

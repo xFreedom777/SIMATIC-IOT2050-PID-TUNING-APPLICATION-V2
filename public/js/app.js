@@ -236,7 +236,12 @@ async function fetchStatus() {
 // ══════════════════════════════════════════════
 async function toggleConnect() {
   if (State.mode === 'plc') {
-    try { await api('DELETE', '/api/connect'); toast('Disconnected', 'info'); }
+    try { 
+      await api('DELETE', '/api/connect'); 
+      toast('Disconnected', 'info'); 
+      State.mode = 'disconnected';
+      updateStatusUI();
+    }
     catch (e) { toast(e.message, 'error'); }
   } else {
     const ip   = document.getElementById('plcIp').value.trim();

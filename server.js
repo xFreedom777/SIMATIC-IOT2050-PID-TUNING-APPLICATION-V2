@@ -105,11 +105,24 @@ app.post('/api/connect', async (req, res) => {
 });
 
 app.delete('/api/connect', (req, res) => {
-  stopPoller();
-  if (s7) { s7.disconnect(); s7 = null; }
-  appMode = 'disconnected';
-  broadcast({ type: 'status', connected: false, mode: 'disconnected' });
-  res.json({ success: true });
+  try {
+    stopPoller();
+    appMode = 'disconnected';
+    if (s7) {
+      s7.dropConnection(() => {
+        s7 = null;
+        broadcast({ type: 'status', connected: false, mode: 'disconnected' });
+        res.json({ success: true });
+      });
+    } else {
+      broadcast({ type: 'status', connected: false, mode: 'disconnected' });
+      res.json({ success: true });
+    }
+  } catch (err) {
+    console.error('[Disconnect Error]:', err);
+    broadcast({ type: 'status', connected: false, mode: 'disconnected' });
+    res.json({ success: true });
+  }
 });
 
 app.get('/api/status', (req, res) => {

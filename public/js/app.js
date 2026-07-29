@@ -91,16 +91,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // WebSocket
 // ══════════════════════════════════════════════
 function connectWebSocket() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  State.ws = new WebSocket(`${proto}://${location.host}`);
-  State.ws.onopen    = () => console.log('[WS] Connected');
-  State.ws.onmessage = (evt) => {
-    const msg = JSON.parse(evt.data);
-    if (msg.type === 'status') onStatus(msg);
-    if (msg.type === 'data')   onData(msg);
-    if (msg.type === 'error')  { toast(msg.message, 'error'); }
-  };
-  State.ws.onclose = () => setTimeout(connectWebSocket, 3000);
+  try {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let host = location.hostname === 'localhost' ? '127.0.0.1' : location.hostname;
+    let port = location.port ? ':' + location.port : '';
+    
+    State.ws = new WebSocket(`${proto}//${host}${port}`);
+    State.ws.onopen    = () => console.log('[WS] Connected');
+    State.ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'status') onStatus(msg);
+      if (msg.type === 'data')   onData(msg);
+      if (msg.type === 'error')  { toast(msg.message, 'error'); }
+    };
+    State.ws.onerror = (err) => console.error('[WS] Error:', err);
+    State.ws.onclose = () => setTimeout(connectWebSocket, 3000);
+  } catch (err) {
+    console.error('[WS] Setup Error:', err);
+    setTimeout(connectWebSocket, 5000);
+  }
 }
 
 function onStatus(msg) { State.mode = msg.mode; updateStatusUI(); }
@@ -860,14 +869,19 @@ async function doStepTest() {
 // DB Offset Config Modal
 // ══════════════════════════════════════════════
 function openOffsetModal() {
-  document.getElementById('offsetTableBody').innerHTML = OFFSET_DEFS.map(def => `
+  document.getElementById('offsetTableBody').innerHTML = OFFSET_DEFS.map(def => {
+    let val = currentOffsets[def.key];
+    if (val === undefined || val === null) val = DEFAULT_OFFSETS[def.key];
+    if (val === undefined || val === null) val = 0;
+    return `
     <tr>
       <td>${def.key}</td>
       <td class="tag-name">${def.tag}</td>
       <td class="tag-type">${def.type}</td>
-      <td><input class="offset-input" type="number" id="ofs_${def.key}" value="${currentOffsets[def.key] ?? DEFAULT_OFFSETS[def.key] ?? 0}"></td>
+      <td><input class="offset-input" type="number" id="ofs_${def.key}" value="${val}"></td>
       <td class="text-xs text-muted">${def.desc}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   openModal('offsetModal');
 }
 
@@ -888,7 +902,7 @@ function resetOffsets() {
   currentOffsets = { ...DEFAULT_OFFSETS };
   OFFSET_DEFS.forEach(def => {
     const el = document.getElementById(`ofs_${def.key}`);
-    if (el) el.value = DEFAULT_OFFSETS[def.key] ?? 0;
+    if (el) el.value = DEFAULT_OFFSETS[def.key] !== undefined ? DEFAULT_OFFSETS[def.key] : 0;
   });
   toast('Offsets reset to defaults', 'info');
 }

@@ -478,6 +478,17 @@ wss.on('connection', (ws) => {
 });
 
 // ═══════════════════════════════════════════════
+// Shutdown Endpoint
+// ═══════════════════════════════════════════════
+app.post('/api/shutdown', (req, res) => {
+  console.log('[System] Shutdown requested via Web UI.');
+  res.json({ status: 'shutting_down' });
+  require('child_process').exec('poweroff', (err) => {
+    if (err) console.error('Shutdown error:', err);
+  });
+});
+
+// ═══════════════════════════════════════════════
 // Start Server
 // ═══════════════════════════════════════════════
 server.listen(PORT, () => {

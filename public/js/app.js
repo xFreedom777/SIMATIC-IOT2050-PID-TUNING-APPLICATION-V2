@@ -999,3 +999,24 @@ setInterval(() => {
     sysDateEl.innerHTML = `Date: <span style="color:var(--cyan)">${d}/${m}/${y}</span> &nbsp;&nbsp; Time: <span style="color:var(--amber)">${hh}:${mm}:${ss}</span>`;
   }
 }, 1000);
+
+// ════════════════════════════════════════════════
+// Shutdown System
+// ════════════════════════════════════════════════
+function shutdownSystem() {
+  if (confirm('⚠️ WARNING ⚠️\n\nAre you sure you want to SHUT DOWN the IOT2050?\nYou will need to manually cycle power to start it again.')) {
+    fetch('/api/shutdown', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'shutting_down') {
+          document.body.innerHTML = `
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#000; color:#ef4444; font-family:sans-serif; text-align:center;">
+              <h1 style="font-size: 50px; margin-bottom: 20px;">SYSTEM SHUTTING DOWN</h1>
+              <p style="font-size: 24px; color: #8b9ab5;">Please wait 10 seconds before turning off the power.</p>
+            </div>
+          `;
+        }
+      })
+      .catch(err => toast('Connection error during shutdown.', 'error'));
+  }
+}

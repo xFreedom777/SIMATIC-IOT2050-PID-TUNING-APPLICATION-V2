@@ -478,8 +478,18 @@ wss.on('connection', (ws) => {
 });
 
 // ═══════════════════════════════════════════════
-// Shutdown Endpoint
+// Restart & Shutdown Endpoints
 // ═══════════════════════════════════════════════
+app.post('/api/restart', (req, res) => {
+  console.log('[System] Restart requested via Web UI.');
+  res.json({ status: 'restarting' });
+  setTimeout(() => {
+    require('child_process').exec('reboot', (err) => {
+      if (err) console.error('Restart error:', err);
+    });
+  }, 2000);
+});
+
 app.post('/api/shutdown', (req, res) => {
   console.log('[System] Shutdown requested via Web UI. Waiting 10s...');
   res.json({ status: 'shutting_down' });

@@ -240,7 +240,12 @@ async function toggleConnect() {
     try {
       await api('POST', '/api/connect', { ip, rack, slot });
       toast(`Connected to S7-1200 at ${ip}`, 'success');
-    } catch (e) { toast(e.message, 'error'); }
+      State.mode = 'plc';
+      updateStatusUI();
+    } catch (e) { 
+      toast(e.message, 'error'); 
+      btn.textContent = '⚡ Connect to PLC'; 
+    }
     finally { btn.disabled = false; }
   }
 }
@@ -1076,5 +1081,39 @@ async function saveSystemTime() {
     }
   } catch (err) {
     toast(err.message, 'error');
+  }
+}
+
+// ════════════════════════════════════════════════
+// Restart System
+// ════════════════════════════════════════════════
+function restartSystem() {
+  if (confirm('⚠️ WARNING ⚠️\n\nAre you sure you want to RESTART the IOT2050?')) {
+    fetch('/api/restart', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'restarting') {
+          document.body.innerHTML = `
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%); color:#fff; font-family: 'Inter', sans-serif; text-align:center;">
+              <div style="font-size: 60px; font-weight: 900; letter-spacing: 6px; background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: gold-shine 3s linear infinite; filter: drop-shadow(0 0 25px rgba(252, 246, 186, 0.4)); margin-bottom: 10px;">
+                MITR PHOL
+              </div>
+              <div style="color: #bf953f; font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px rgba(191, 149, 63, 0.5); margin-bottom: 50px;">
+                SYSTEM RESTARTING
+              </div>
+              <div style="width: 50px; height: 50px; border: 4px solid rgba(191,149,63,0.3); border-top-color: #fcf6ba; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+              <div style="margin-top: 40px; font-size: 24px; color: #3b82f6; font-weight: bold; text-shadow: 0 0 15px rgba(59, 130, 246, 0.5); letter-spacing: 2px;">
+                Rebooting system...
+              </div>
+            </div>
+            <style>
+              @keyframes spin { 100% { transform: rotate(360deg); } }
+              @keyframes gold-shine { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+            </style>
+          `;
+          setTimeout(() => location.reload(), 20000);
+        }
+      })
+      .catch(err => toast('Connection error during restart.', 'error'));
   }
 }

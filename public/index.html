@@ -24,10 +24,83 @@
       50% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
       100% { border-color: rgba(239, 68, 68, 0.3); }
     }
+    /* ═══════ GOLDEN SPLASH SCREEN CSS ═══════ */
+    #splash-screen {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 1s ease-out, visibility 1s ease-out;
+    }
+    .splash-logo {
+      font-size: 42px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 6px;
+      background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gold-shine 3s linear infinite;
+      filter: drop-shadow(0 0 25px rgba(252, 246, 186, 0.4));
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .splash-sub {
+      color: #bf953f;
+      font-size: 15px;
+      letter-spacing: 3px;
+      opacity: 0.9;
+      text-shadow: 0 0 10px rgba(191, 149, 63, 0.5);
+    }
+    .splash-loader {
+      margin-top: 50px;
+      width: 250px;
+      height: 3px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 10px rgba(191, 149, 63, 0.2);
+    }
+    .splash-loader::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; height: 100%;
+      width: 40%;
+      background: linear-gradient(90deg, transparent, #fcf6ba, #bf953f, transparent);
+      animation: load-slide 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes gold-shine {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes load-slide {
+      0% { left: -50%; }
+      100% { left: 100%; }
+    }
+    .splash-hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
+
+<!-- ═══════ GOLDEN SPLASH SCREEN ═══════ -->
+<div id="splash-screen">
+  <div style="display:flex; flex-direction:column; align-items:center;">
+    <div class="splash-logo">SIMATIC IOT2050</div>
+    <div class="splash-sub">ADVANCED PID CONTROL ENGINE</div>
+    <div class="splash-sub" style="margin-top: 8px;">BY DREAM PIYAPONG</div>
+    <div class="splash-loader"></div>
+  </div>
+</div>
 
 <div class="app">
 
@@ -134,6 +207,7 @@
         <button class="pid-mode-btn" id="modeAuto"     onclick="setPIDMode(3)">▶ Auto</button>
         <button class="pid-mode-btn" id="modeManual"   onclick="setPIDMode(4)">✋ Manual</button>
         <div class="spacer"></div>
+        <span class="text-xs" id="sysDateTime" style="margin-right: 15px; font-weight: 500; color: var(--text-2); letter-spacing: 0.5px;">Date: --/--/---- Time: --:--:--</span>
         <span class="text-xs text-muted" id="stateLabel">State: —</span>
         <button class="btn btn-xs btn-ghost" onclick="readAllParams()" id="readBtn" disabled>↻ Read PLC</button>
         <button class="btn btn-xs btn-danger" onclick="resetError()" id="resetErrBtn" style="display:none">⚠ Reset Error</button>
@@ -513,6 +587,22 @@
     </div>
   </div>
 </div>
+
+<!-- Splash Screen Script -->
+<script>
+  window.addEventListener('load', () => {
+    // 10 seconds of golden aura before fading out
+    setTimeout(() => {
+      const splash = document.getElementById('splash-screen');
+      if(splash) {
+        splash.classList.add('splash-hidden');
+        setTimeout(() => {
+          splash.style.display = 'none';
+        }, 1000); // wait for fade transition to finish
+      }
+    }, 10000);
+  });
+</script>
 
 <script src="/js/app.js"></script>
 </body>

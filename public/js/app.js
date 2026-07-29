@@ -981,3 +981,21 @@ function toast(msg, type = 'info') {
   c.appendChild(el);
   setTimeout(() => el.remove(), 3200);
 }
+
+// ════════════════════════════════════════════════
+// System Clock
+// ════════════════════════════════════════════════
+setInterval(() => {
+  const dt = new Date();
+  const d = String(dt.getDate()).padStart(2, '0');
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const y = dt.getFullYear();
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const mm = String(dt.getMinutes()).padStart(2, '0');
+  const ss = String(dt.getSeconds()).padStart(2, '0');
+  
+  const sysDateEl = document.getElementById('sysDateTime');
+  if (sysDateEl) {
+    sysDateEl.innerHTML = `Date: <span style="color:var(--cyan)">${d}/${m}/${y}</span> &nbsp;&nbsp; Time: <span style="color:var(--amber)">${hh}:${mm}:${ss}</span>`;
+  }
+}, 1000);

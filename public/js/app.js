@@ -70,11 +70,11 @@ let currentOffsets = { ...DEFAULT_OFFSETS };
 window.onload = async () => {
   try {
     initChart();
+    initDashCharts();
   } catch (err) {
     console.error('Chart init failed:', err);
     toast('Chart initialization failed on this device.', 'warning');
   }
-  initDashCharts();
   connectWebSocket();
   await fetchStatus();
   setInterval(updateAnalytics, 2000);

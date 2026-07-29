@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PIN MILL PLANT GATE VALVE CONTROL AND MONITORING Project</title>
+  <meta name="description" content="Industrial PID Tuning Application for Siemens S7-1200 with PIDCompact V2. Real-time monitoring, parameter configuration, and simulation.">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .alarm-banner {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      animation: pulse-border 2s infinite;
+    }
+    @keyframes pulse-border {
+      0% { border-color: rgba(239, 68, 68, 0.3); }
+      50% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 8px rgba(239, 68, 68, 0.3); }
+      100% { border-color: rgba(239, 68, 68, 0.3); }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <header class="header">
+    <div class="logo" style="display:flex; align-items:center; gap:10px;">
+      <img src="/logo.png" alt="Mitr Phol Logo" style="height: 38px; border-radius: 6px; background-color: white; padding: 2px;">
+      <div class="logo-text" style="font-size: 13px; line-height: 1.2; text-transform: uppercase;">
+        PIN MILL PLANT<br>
+        <span style="color:var(--primary); font-size: 11px;">GATE VALVE CONTROL AND MONITORING Project</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Disconnected</span>
+      </div>
+      <span class="mode-chip offline" id="modeChip">OFFLINE</span>
+    </div>
+
+    <div class="header-right">
+      <button class="btn btn-ghost btn-sm" onclick="openOffsetModal()" id="offsetBtn" disabled title="Configure DB Offsets">🗂 DB Offsets</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearHistory()">🗑 Clear History</button>
+      <button class="btn btn-amber btn-sm" onclick="toggleParamLock()" id="lockBtn" title="Parameter Lock">🔒 Locked</button>
+    </div>
+  </header>
+
+  <!-- ═══════ LAYOUT ═══════ -->
+  <div class="layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+
+      <!-- Connection Card -->
+      <div class="card" id="connCard">
+        <div class="card-title">🔌 PLC Connection</div>
+        <div class="connect-form" id="connectForm">
+          <div class="form-group">
+            <label>PLC IP Address</label>
+            <input class="input" id="plcIp" type="text" placeholder="192.168.1.10" value="192.168.1.10">
+          </div>
+          <div class="input-row">
+            <div class="form-group">
+              <label>Rack</label>
+              <input class="input" id="plcRack" type="number" value="0" min="0" max="7">
+            </div>
+            <div class="form-group">
+              <label>Slot</label>
+              <input class="input" id="plcSlot" type="number" value="0" min="0" max="31">
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" id="connectBtn" onclick="toggleConnect()">
+            <span>⚡</span> Connect to PLC
+          </button>
+          <button class="btn btn-amber btn-full btn-sm" onclick="startSimulation()" id="simBtn">
+            🔬 Start Simulation
+          </button>
+        </div>
+      </div>
+
+      <!-- PID Loops Card -->
+      <div class="card" style="flex:1;">
+        <div class="card-title row between" style="margin-bottom:10px">
+          <span>🔄 PID Loops</span>
+          <button class="btn btn-xs btn-ghost" onclick="openAddBlockModal()">+ Add</button>
+        </div>
+        <div id="blockList">
+          <div class="empty-state" style="padding:20px">
+            <div class="empty-icon">📊</div>
+            <div class="empty-text text-sm">No loops added yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick SP Control -->
+      <div class="card" id="spControlCard" style="display:none">
+        <div class="card-title">🎯 Quick Setpoint</div>
+        <div class="form-group">
+          <label id="spLabel">Setpoint</label>
+          <div class="row">
+            <input class="input" id="spInput" type="number" step="0.1" placeholder="0.0">
+            <button class="btn btn-primary btn-sm" onclick="writeSetpoint()">Set</button>
+          </div>
+        </div>
+        <div id="manualOutSection" style="display:none;margin-top:10px">
+          <label class="text-xs text-muted">Manual Output (%)</label>
+          <div class="slider-row">
+            <input type="range" id="manualSlider" min="0" max="100" step="0.5" value="50" oninput="onManualSlider(this.value)">
+            <span class="slider-val" id="manualSliderVal">50.0</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── CONTENT ── -->
+    <main class="content">
+
+      <!-- Mode Control Bar -->
+      <div class="mode-bar">
+        <span class="mode-bar-label">PID Mode:</span>
+        <button class="pid-mode-btn" id="modeInactive" onclick="setPIDMode(0)">⬛ Inactive</button>
+        <button class="pid-mode-btn" id="modeAuto"     onclick="setPIDMode(3)">▶ Auto</button>
+        <button class="pid-mode-btn" id="modeManual"   onclick="setPIDMode(4)">✋ Manual</button>
+        <div class="spacer"></div>
+        <span class="text-xs text-muted" id="stateLabel">State: —</span>
+        <button class="btn btn-xs btn-ghost" onclick="readAllParams()" id="readBtn" disabled>↻ Read PLC</button>
+        <button class="btn btn-xs btn-danger" onclick="resetError()" id="resetErrBtn" style="display:none">⚠ Reset Error</button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="trend" onclick="switchTab('trend')">📈 Trend</button>
+        <button class="tab-btn" data-tab="params" onclick="switchTab('params')">⚙ Parameters</button>
+        <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Dashboard</button>
+        <button class="tab-btn" data-tab="simulation" onclick="switchTab('simulation')">🔬 Simulation</button>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="tab-content">
+
+        <!-- ═══ TREND ═══ -->
+        <div class="tab-panel active" id="tab-trend">
+          <div class="trend-panel">
+
+            <!-- Live Values -->
+            <div class="live-row">
+              <div class="live-card sp-card">
+                <div class="live-label">Setpoint (SP)</div>
+                <div class="live-value" id="lv-sp">—</div>
+                <div class="live-unit" id="lv-sp-unit"></div>
+              </div>
+              <div class="live-card pv-card">
+                <div class="live-label">Process Value (PV)</div>
+                <div class="live-value" id="lv-pv">—</div>
+                <div class="live-unit" id="lv-pv-unit"></div>
+              </div>
+              <div class="live-card out-card">
+                <div class="live-label">Output</div>
+                <div class="live-value" id="lv-out">—</div>
+                <div class="live-unit" id="lv-out-unit">%</div>
+              </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-wrap" style="flex:1">
+              <div class="chart-toolbar">
+                <div class="chart-legend">
+                  <div class="legend-item"><div class="legend-line sp"></div> SP</div>
+                  <div class="legend-item"><div class="legend-line pv"></div> PV</div>
+                  <div class="legend-item"><div class="legend-line output"></div> Output %</div>
+                </div>
+                <div class="row" style="gap:6px">
+                  <button class="btn btn-xs btn-ghost" onclick="exportChartCSV()" style="margin-right:10px" title="Export graph history to CSV">💾 Export CSV</button>
+                  <span class="text-xs text-muted">Window:</span>
+                  <select class="input" id="chartWindow" style="width:90px;padding:4px 6px;font-size:12px" onchange="setChartWindow(this.value)">
+                    <option value="60">1 min</option>
+                    <option value="300" selected>5 min</option>
+                    <option value="600">10 min</option>
+                    <option value="1800">30 min</option>
+                  </select>
+                </div>
+              </div>
+              <div style="position:relative;height:calc(100% - 40px)">
+                <canvas id="trendChart"></canvas>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ═══ PARAMETERS ═══ -->
+        <div class="tab-panel" id="tab-params">
+          <!-- Lock Banner -->
+          <div id="lockBanner" style="display:none;padding:8px 14px;background:rgba(245,158,11,0.12);border-bottom:1px solid rgba(245,158,11,0.25);">
+            <div class="row" style="gap:8px">
+              <span style="font-size:13px">🔒</span>
+              <span class="text-sm" style="color:var(--amber);font-weight:500">Parameters are locked. Click the lock button in the header to unlock.</span>
+            </div>
+          </div>
+          <div class="param-scroll" id="paramScroll">
+            <div class="empty-state">
+              <div class="empty-icon">⚙</div>
+              <div class="empty-text">Select a PID loop to view parameters</div>
+            </div>
+          </div>
+          <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;justify-content:flex-end" id="paramActions">
+            <span id="lockStatusLabel" class="text-xs text-muted"></span>
+            <button class="btn btn-ghost" onclick="readAllParams()" id="readParamBtn">↻ Read from PLC</button>
+            <button class="btn btn-primary" onclick="writeAllParams()" id="writeParamBtn">💾 Write to PLC / Sim</button>
+          </div>
+        </div>
+
+        <!-- ═══ DASHBOARD ═══ -->
+        <div class="tab-panel" id="tab-dashboard">
+          <div class="dashboard-scroll">
+
+            <div class="card-title" style="margin-bottom:12px">📊 Performance Analytics</div>
+            <div class="kpi-grid" id="kpiGrid">
+              <div class="kpi-card"><div class="kpi-icon">📏</div><div class="kpi-label">Current Error</div><div class="kpi-value" id="kpi-error">—</div><div class="kpi-sub">SP - PV</div></div>
+              <div class="kpi-card"><div class="kpi-icon">🚀</div><div class="kpi-label">Overshoot</div><div class="kpi-value" id="kpi-overshoot">—</div><div class="kpi-sub">% of step</div></div>
+              <div class="kpi-card"><div class="kpi-icon">⏱</div><div class="kpi-label">Rise Time</div><div class="kpi-value" id="kpi-rise">—</div><div class="kpi-sub">10% → 90% of SP</div></div>
+              <div class="kpi-card"><div class="kpi-icon">🎯</div><div class="kpi-label">Settling Time</div><div class="kpi-value" id="kpi-settle">—</div><div class="kpi-sub">within ±2% band</div></div>
+              <div class="kpi-card"><div class="kpi-icon">∫</div><div class="kpi-label">IAE (60s)</div><div class="kpi-value" id="kpi-iae">—</div><div class="kpi-sub">Integral Abs Error</div></div>
+              <div class="kpi-card"><div class="kpi-icon">∫²</div><div class="kpi-label">ISE (60s)</div><div class="kpi-value" id="kpi-ise">—</div><div class="kpi-sub">Integral Sq Error</div></div>
+              <div class="kpi-card"><div class="kpi-icon">📊</div><div class="kpi-label">RMSE (60s)</div><div class="kpi-value" id="kpi-rmse">—</div><div class="kpi-sub">Root Mean Sq Error</div></div>
+              <div class="kpi-card"><div class="kpi-icon">⚡</div><div class="kpi-label">Avg Output</div><div class="kpi-value" id="kpi-avgout">—</div><div class="kpi-sub">Mean control effort %</div></div>
+            </div>
+
+            <div class="dash-chart-grid">
+              <div class="dash-chart-card">
+                <div class="dash-chart-title">Error Distribution (last 5 min)</div>
+                <div style="position:relative;height:160px;width:100%">
+                  <canvas id="errorChart"></canvas>
+                </div>
+              </div>
+              <div class="dash-chart-card">
+                <div class="dash-chart-title">Output Histogram (last 5 min)</div>
+                <div style="position:relative;height:160px;width:100%">
+                  <canvas id="outputChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alarm History Section -->
+            <div class="card-title" style="margin-top:24px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+              <span>🚨 Alarm History</span>
+              <button class="btn btn-xs btn-ghost" onclick="clearAlarmHistory()">🗑 Clear Alarms</button>
+            </div>
+            <div class="card" style="padding:0; overflow:hidden;">
+              <table class="table" style="width:100%; text-align:left; font-size:13px; border-collapse:collapse;">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border); background:rgba(0,0,0,0.2);">
+                    <th style="padding:10px 14px; width:100px;">Time</th>
+                    <th style="padding:10px 14px; width:220px;">Alarm</th>
+                    <th style="padding:10px 14px;">Troubleshooting / Fix</th>
+                  </tr>
+                </thead>
+                <tbody id="alarmHistoryBody">
+                  <tr><td colspan="3" style="text-align:center; padding:20px; color:var(--text-muted);">No alarms recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ═══ SIMULATION ═══ -->
+        <div class="tab-panel" id="tab-simulation">
+          <div class="sim-scroll">
+            <div class="sim-grid">
+
+              <!-- Process Model -->
+              <div class="card">
+                <div class="card-title">🏭 Process Model (FOPDT)</div>
+                <p class="text-xs text-muted" style="margin-bottom:12px">G(s) = K·e<sup>-Ls</sup> / (Ts+1)</p>
+
+                <div class="form-group">
+                  <label>Process Gain (K)</label>
+                  <div class="slider-row">
+                    <input type="range" id="simK" min="0.1" max="5" step="0.05" value="1" oninput="updateSimParam('K',this.value)">
+                    <span class="slider-val" id="simKVal">1.00</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Time Constant T (s)</label>
+                  <div class="slider-row">
+                    <input type="range" id="simT" min="1" max="120" step="1" value="10" oninput="updateSimParam('T',this.value)">
+                    <span class="slider-val" id="simTVal">10</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Dead Time L (s)</label>
+                  <div class="slider-row">
+                    <input type="range" id="simL" min="0" max="30" step="0.5" value="2" oninput="updateSimParam('L',this.value)">
+                    <span class="slider-val" id="simLVal">2.0</span>
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="row between">
+                  <button class="btn btn-amber btn-sm" onclick="startSimulation()">▶ Start Simulation</button>
+                  <button class="btn btn-ghost btn-sm" onclick="stopSimulation()">⬛ Stop</button>
+                </div>
+              </div>
+
+              <!-- IMC Tuning Calculator -->
+              <div class="card">
+                <div class="card-title">🧮 Auto-Tune Calculator</div>
+                <p class="text-xs text-muted" style="margin-bottom:12px">Based on current process model (K, T, L)</p>
+
+                <div class="form-group">
+                  <label>λ — Desired Response Speed (s)</label>
+                  <div class="slider-row">
+                    <input type="range" id="simLambda" min="1" max="60" step="0.5" value="5" oninput="updateLambda(this.value)">
+                    <span class="slider-val" id="simLambdaVal">5.0</span>
+                  </div>
+                  <span class="text-xs text-muted">Smaller λ = faster response (less robust)</span>
+                </div>
+
+                <button class="btn btn-primary btn-sm btn-full" onclick="calculateTuning()" style="margin:10px 0">⚡ Calculate Tuning</button>
+
+                <table class="tune-table" id="tuneTable">
+                  <thead>
+                    <tr>
+                      <th>Method</th>
+                      <th>Kp</th>
+                      <th>Ti (s)</th>
+                      <th>Td (s)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tuneBody">
+                    <tr><td colspan="5" class="text-muted text-xs" style="padding:10px;text-align:center">Click Calculate to see tuning suggestions</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Step Test -->
+              <div class="card">
+                <div class="card-title">📐 Step Test (Simulation)</div>
+                <p class="text-xs text-muted" style="margin-bottom:12px">Apply a step change to SP and observe response</p>
+                <div class="form-group">
+                  <label>Initial SP</label>
+                  <input class="input" id="stepFrom" type="number" value="30">
+                </div>
+                <div class="form-group">
+                  <label>Step SP</label>
+                  <input class="input" id="stepTo" type="number" value="70">
+                </div>
+                <button class="btn btn-primary btn-sm btn-full" onclick="doStepTest()">▶ Apply Step</button>
+                <p class="text-xs text-muted" style="margin-top:8px">View results in Trend and Dashboard tabs</p>
+              </div>
+
+              <!-- Simulation Notes -->
+              <div class="card">
+                <div class="card-title">📋 PIDCompact V2 Offset Guide</div>
+                <p class="text-xs text-muted" style="margin-bottom:10px">
+                  To find correct byte offsets in TIA Portal V19:
+                </p>
+                <ol style="font-size:12px;color:var(--text-2);padding-left:16px;line-height:1.8">
+                  <li>Open the PIDCompact instance DB</li>
+                  <li>In the DB editor, enable <strong style="color:var(--cyan)">Offset</strong> column</li>
+                  <li>Find each parameter's byte offset</li>
+                  <li>Click <strong style="color:var(--cyan)">🗂 DB Offsets</strong> in the header</li>
+                  <li>Enter the correct offsets for your version</li>
+                </ol>
+                <div class="divider"></div>
+                <p class="text-xs text-muted">
+                  ⚠ Also enable <strong style="color:var(--amber)">Permit access with PUT/GET</strong> in:<br>
+                  PLC Properties → Protection → Connection mechanisms
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-content -->
+    </main>
+  </div><!-- /layout -->
+</div><!-- /app -->
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════
+     MODALS
+══════════════════════════════════════ -->
+
+<!-- Add Block Modal -->
+<div class="modal-overlay" id="addBlockModal" style="display:none" onclick="closeModal('addBlockModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">➕ Add PID Loop</span>
+      <button class="modal-close" onclick="closeModal('addBlockModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Loop Name</label>
+      <input class="input" id="newBlockName" placeholder="e.g. Temperature Loop 1">
+    </div>
+    <div class="form-group">
+      <label>Instance DB Number</label>
+      <input class="input" id="newBlockDB" type="number" placeholder="e.g. 10" min="1">
+    </div>
+    <div class="input-row">
+      <div class="form-group">
+        <label>SP Unit</label>
+        <input class="input" id="newBlockSpUnit" placeholder="e.g. °C">
+      </div>
+      <div class="form-group">
+        <label>PV Unit</label>
+        <input class="input" id="newBlockPvUnit" placeholder="e.g. °C">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addBlockModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddBlock()">Add Loop</button>
+    </div>
+  </div>
+</div>
+
+<!-- DB Offset Config Modal -->
+<div class="modal-overlay" id="offsetModal" style="display:none" onclick="closeModal('offsetModal')">
+  <div class="modal modal-wide" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">🗂 DB Byte Offset Configuration</span>
+      <button class="modal-close" onclick="closeModal('offsetModal')">✕</button>
+    </div>
+    <p class="text-xs text-muted" style="margin-bottom:14px">
+      Verify these byte offsets from TIA Portal → DB Editor → Offset column for PIDCompact V2.
+      Defaults are estimates for TIA V17/V18/V19.
+    </p>
+    <div style="max-height:50vh;overflow-y:auto">
+      <table class="offset-table">
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Tag</th>
+            <th>Type</th>
+            <th>Byte Offset</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="offsetTableBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="resetOffsets()">↺ Reset Defaults</button>
+      <button class="btn btn-ghost" onclick="closeModal('offsetModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOffsets()">💾 Save Offsets</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PIN Unlock Modal ── -->
+<div class="modal-overlay" id="pinModal" style="display:none" onclick="closeModal('pinModal')">
+  <div class="modal" style="width:340px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">🔓 Enter PIN to Unlock</span>
+      <button class="modal-close" onclick="closeModal('pinModal')">✕</button>
+    </div>
+    <p class="text-sm text-muted" style="margin-bottom:16px">Enter the 4-digit PIN to allow parameter editing.</p>
+    <div class="form-group">
+      <label>PIN</label>
+      <input class="input" id="pinInput" type="password" maxlength="8" placeholder="••••"
+             style="font-size:22px;letter-spacing:8px;text-align:center"
+             onkeydown="if(event.key==='Enter') confirmPin()">
+      <span id="pinError" class="text-xs" style="color:var(--red);display:none;margin-top:4px">❌ Incorrect PIN</span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('pinModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmPin()">🔓 Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Change PIN Modal ── -->
+<div class="modal-overlay" id="changePinModal" style="display:none" onclick="closeModal('changePinModal')">
+  <div class="modal" style="width:360px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">🔑 Change PIN</span>
+      <button class="modal-close" onclick="closeModal('changePinModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Current PIN</label>
+      <input class="input" id="cpOldPin" type="password" maxlength="8" placeholder="Current PIN">
+    </div>
+    <div class="form-group">
+      <label>New PIN</label>
+      <input class="input" id="cpNewPin" type="password" maxlength="8" placeholder="New PIN (4–8 digits)">
+    </div>
+    <div class="form-group">
+      <label>Confirm New PIN</label>
+      <input class="input" id="cpConfirmPin" type="password" maxlength="8" placeholder="Confirm New PIN">
+    </div>
+    <span id="cpError" class="text-xs" style="color:var(--red);display:none">❌ Error</span>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('changePinModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmChangePin()">💾 Save PIN</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

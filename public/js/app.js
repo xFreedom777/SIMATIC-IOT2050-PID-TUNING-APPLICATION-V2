@@ -567,6 +567,14 @@ async function resetError() {
 // Trend Chart
 // ══════════════════════════════════════════════
 function initChart() {
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js not loaded (no internet). Chart disabled.');
+    const el = document.getElementById('trendChart');
+    if (el && el.parentElement) {
+      el.parentElement.innerHTML = '<div style="color:var(--amber); text-align:center; margin-top:100px; font-size:20px;">⚠️ Trend Graph Unavailable<br><span style="font-size:14px; color:var(--text-muted);">Chart.js could not load from CDN. Please connect to internet once to cache it.</span></div>';
+    }
+    return;
+  }
   const ctx = document.getElementById('trendChart').getContext('2d');
   State.chart = new Chart(ctx, {
     type: 'line',
@@ -595,6 +603,7 @@ function initChart() {
 }
 
 function pushChartData(blockId, sp, pv, output, ts) {
+  if (!State.chart || typeof Chart === 'undefined') return;
   if (!State.chartData[blockId]) State.chartData[blockId] = { sp:[], pv:[], out:[], labels:[] };
   const cd = State.chartData[blockId];
   const label = new Date(ts).toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
@@ -634,6 +643,7 @@ function exportChartCSV() {
 }
 
 function rebuildChart(blockId) {
+  if (!State.chart || typeof Chart === 'undefined') return;
   const cd = State.chartData[blockId];
   if (!cd) return;
   State.chart.data.labels           = [...cd.labels];

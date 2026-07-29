@@ -67,11 +67,16 @@ let currentOffsets = { ...DEFAULT_OFFSETS };
 // ══════════════════════════════════════════════
 // Init
 // ══════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  initChart();
+window.onload = async () => {
+  try {
+    initChart();
+  } catch (err) {
+    console.error('Chart init failed:', err);
+    toast('Chart initialization failed on this device.', 'warning');
+  }
   initDashCharts();
   connectWebSocket();
-  fetchStatus();
+  await fetchStatus();
   setInterval(updateAnalytics, 2000);
 
   // Lock button right-click → Change PIN
@@ -85,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Apply initial lock state
   applyLockState();
-});
+};
 
 // ══════════════════════════════════════════════
 // WebSocket

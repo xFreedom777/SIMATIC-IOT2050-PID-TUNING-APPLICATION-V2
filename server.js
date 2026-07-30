@@ -39,8 +39,10 @@ let s7 = null;
 let sim = null;
 let appMode = 'disconnected';   // 'disconnected' | 'plc' | 'simulation'
 let blocks = {};                // blockId → block object
+let appConfig = { plcIp: '192.168.1.10', plcRack: 0, plcSlot: 0 };
 
 const BLOCKS_FILE = path.join(__dirname, 'data', 'blocks.json');
+const CONFIG_FILE = path.join(__dirname, 'data', 'config.json');
 
 function loadBlocks() {
   try {
@@ -49,6 +51,16 @@ function loadBlocks() {
     }
   } catch (err) {
     console.error('Failed to load blocks:', err);
+  }
+}
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      appConfig = { ...appConfig, ...JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) };
+    }
+  } catch (err) {
+    console.error('Failed to load config:', err);
   }
 }
 
@@ -63,7 +75,19 @@ function saveBlocks() {
   }
 }
 
+function saveConfig() {
+  try {
+    if (!fs.existsSync(path.dirname(CONFIG_FILE))) {
+      fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+    }
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(appConfig, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to save config:', err);
+  }
+}
+
 loadBlocks();
+loadConfig();
 let history = {};               // blockId → [{sp,pv,output,mode,timestamp}]
 let pollerTimer = null;
 const POLL_MS      = 500;
@@ -93,6 +117,11 @@ function defaultOffsets() {
 app.post('/api/connect', async (req, res) => {
   const { ip, rack = 0, slot = 0 } = req.body;
   if (!ip) return res.status(400).json({ error: 'IP address required' });
+
+  appConfig.plcIp = ip;
+  appConfig.plcRack = rack;
+  appConfig.plcSlot = slot;
+  saveConfig();
 
   try {
     if (s7) { s7.disconnect(); s7 = null; }
@@ -138,6 +167,7 @@ app.get('/api/status', (req, res) => {
     connected: appMode !== 'disconnected',
     blockCount: Object.keys(blocks).length,
     defaultOffsets: DEFAULT_OFFSETS,
+    plcConfig: appConfig
   });
 });
 

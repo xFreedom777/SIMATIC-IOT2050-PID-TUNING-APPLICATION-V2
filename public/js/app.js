@@ -238,6 +238,13 @@ async function fetchStatus() {
     const data = await api('GET', '/api/status');
     State.mode = data.mode;
     updateStatusUI();
+    
+    if (data.plcConfig) {
+      document.getElementById('plcIp').value = data.plcConfig.plcIp || '192.168.1.10';
+      document.getElementById('plcRack').value = data.plcConfig.plcRack || 0;
+      document.getElementById('plcSlot').value = data.plcConfig.plcSlot || 0;
+    }
+    
     const bdata = await api('GET', '/api/blocks');
     bdata.blocks.forEach(b => {
       State.blocks[b.id] = b;

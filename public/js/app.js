@@ -635,7 +635,13 @@ function pushChartData(blockId, sp, pv, output, ts) {
   if (!State.chartData[blockId]) State.chartData[blockId] = { sp:[], pv:[], out:[], labels:[] };
   const cd = State.chartData[blockId];
   const label = new Date(ts).toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  cd.sp.push(sp); cd.pv.push(pv); cd.out.push(output); cd.labels.push(label);
+  const numSp = Number(sp);
+  const numPv = Number(pv);
+  const numOut = Number(output);
+  cd.sp.push(isNaN(numSp) ? 0 : numSp); 
+  cd.pv.push(isNaN(numPv) ? 0 : numPv); 
+  cd.out.push(isNaN(numOut) ? 0 : numOut); 
+  cd.labels.push(label);
   const maxPts = State.chartWindow * 2;
   if (cd.sp.length > maxPts) { cd.sp.shift(); cd.pv.shift(); cd.out.shift(); cd.labels.shift(); }
   if (blockId === State.selectedBlockId) {

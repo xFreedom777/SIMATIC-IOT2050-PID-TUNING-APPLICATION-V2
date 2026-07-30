@@ -603,7 +603,7 @@ app.get('/api/drives', (req, res) => {
         try { fs.accessSync(letters[i] + ':\\'); drives.push(letters[i] + ':\\'); } catch(e) {}
       }
     } else {
-      ['/media', '/mnt'].forEach(base => {
+      ['/media', '/mnt', '/run/media'].forEach(base => {
         if (fs.existsSync(base)) {
           fs.readdirSync(base).forEach(item => {
             const full = path.join(base, item);

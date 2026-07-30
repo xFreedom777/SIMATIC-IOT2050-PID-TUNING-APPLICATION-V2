@@ -609,9 +609,9 @@ function initChart() {
     data: {
       labels: [],
       datasets: [
-        { label:'SP',     data:[], borderColor:'#00d4ff', borderWidth:1.5 },
-        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2 },
-        { label:'Output', data:[], borderColor:'#f59e0b', borderWidth:1.5, yAxisID:'y2' },
+        { label:'SP',     data:[], borderColor:'#00d4ff', borderDash:[6,3], borderWidth:1.5, pointRadius:0, tension:0.3 },
+        { label:'PV',     data:[], borderColor:'#22c55e', borderWidth:2,    pointRadius:0, tension:0.3 },
+        { label:'Output', data:[], borderColor:'#f59e0b', borderWidth:1.5,  pointRadius:0, tension:0.3, yAxisID:'y2' },
       ],
     },
     options: {
@@ -649,7 +649,7 @@ function pushChartData(blockId, sp, pv, output, ts) {
     State.chart.data.datasets[0].data = cd.sp;
     State.chart.data.datasets[1].data = cd.pv;
     State.chart.data.datasets[2].data = cd.out;
-    State.chart.update(0);
+    State.chart.update();
   }
 }
 
@@ -684,7 +684,7 @@ function rebuildChart(blockId) {
   State.chart.data.datasets[0].data = cd.sp;
   State.chart.data.datasets[1].data = cd.pv;
   State.chart.data.datasets[2].data = cd.out;
-  State.chart.update(0);
+  State.chart.update();
 }
 
 function setChartWindow(val) {
@@ -780,17 +780,17 @@ function initDashCharts() {
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 0 },
-    legend: { display: false },
+    plugins: { legend: { display: false } },
     scales: {
-      xAxes: [{
-        ticks: { fontColor: '#4a5a75', fontSize: 9, maxTicksLimit: 8 },
-        gridLines: { color: 'rgba(255,255,255,0.04)' }
-      }],
-      yAxes: [{
+      x: {
+        ticks: { color: '#4a5a75', font: { size: 9 }, maxTicksLimit: 8 },
+        grid: { color: 'rgba(255,255,255,0.04)' }
+      },
+      y: {
         type: 'linear',
-        ticks: { fontColor: '#4a5a75', fontSize: 9 },
-        gridLines: { color: 'rgba(255,255,255,0.04)' }
-      }]
+        ticks: { color: '#4a5a75', font: { size: 9 } },
+        grid: { color: 'rgba(255,255,255,0.04)' }
+      }
     }
   });
 
@@ -810,7 +810,7 @@ function updateErrorChart(errors) {
   errors.forEach(e=>{ const idx=Math.min(bins-1,Math.floor((e-min)/range*bins)); counts[idx]++; });
   State.dashCharts.error.data.labels = counts.map((_,i)=>(min+(i/bins)*range).toFixed(1));
   State.dashCharts.error.data.datasets[0].data = counts;
-  State.dashCharts.error.update(0);
+  State.dashCharts.error.update();
 }
 
 function updateOutputChart(outputs) {
@@ -818,7 +818,7 @@ function updateOutputChart(outputs) {
   outputs.forEach(v=>{ const idx=Math.min(bins-1,Math.floor(v/100*bins)); counts[idx]++; });
   State.dashCharts.output.data.labels = counts.map((_,i)=>(i*10)+'%');
   State.dashCharts.output.data.datasets[0].data = counts;
-  State.dashCharts.output.update(0);
+  State.dashCharts.output.update();
 }
 
 // ══════════════════════════════════════════════

@@ -36,6 +36,8 @@ const OFFSET_DEFS = [
   { key: 'output',              tag: 'Output',                    type: 'Real',  desc: 'Output: Controller output (%)'      },
   { key: 'state',               tag: 'State',                     type: 'Int',   desc: 'Output: PID state code'             },
   { key: 'mode',                tag: 'Mode',                      type: 'Int',   desc: 'InOut: Operating mode'              },
+  { key: 'errorBits',           tag: 'ErrorBits',                 type: 'DWord', desc: 'Output: Error code (PID fault)'      },
+  { key: 'errorAck',            tag: 'ErrorAck',                  type: 'Bool',  desc: 'Input: Reset error acknowledgement (bit 0)' },
   { key: 'gain',                tag: 'Retain.Gain',               type: 'Real',  desc: 'Static: Proportional gain Kp'       },
   { key: 'ti',                  tag: 'Retain.Ti',                 type: 'Real',  desc: 'Static: Integration time (s)'       },
   { key: 'td',                  tag: 'Retain.Td',                 type: 'Real',  desc: 'Static: Derivative time (s)'        },

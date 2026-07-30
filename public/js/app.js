@@ -187,13 +187,17 @@ function detectNewAlarms(blockId, oldBits, newBits) {
   let added = false;
   errMap.forEach(e => {
     if (newSetBits & e.bit) {
-      State.alarms.unshift({ time: new Date(), block: bName, msg: e.msg, fix: e.fix });
-      added = true;
+      // Prevent spam: don't add if the exact same alarm is already at the top
+      const lastAlarm = State.alarms[0];
+      if (!lastAlarm || lastAlarm.block !== bName || lastAlarm.msg !== e.msg) {
+        State.alarms.unshift({ time: new Date(), block: bName, msg: e.msg, fix: e.fix });
+        added = true;
+      }
     }
   });
   
   if (added) {
-    if (State.alarms.length > 100) State.alarms.length = 100;
+    if (State.alarms.length > 50) State.alarms.length = 50; // Reduce max rows to 50 for performance on IOT2050
     renderAlarmHistory();
   }
 }

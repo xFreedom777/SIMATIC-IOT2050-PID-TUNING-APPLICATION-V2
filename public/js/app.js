@@ -642,7 +642,7 @@ function pushChartData(blockId, sp, pv, output, ts) {
   cd.pv.push(isNaN(numPv) ? 0 : numPv); 
   cd.out.push(isNaN(numOut) ? 0 : numOut); 
   cd.labels.push(label);
-  const maxPts = State.chartWindow * 2;
+  const maxPts = State.chartWindow * 30;
   if (cd.sp.length > maxPts) { cd.sp.shift(); cd.pv.shift(); cd.out.shift(); cd.labels.shift(); }
   if (blockId === State.selectedBlockId) {
     State.chart.data.labels           = cd.labels;
@@ -689,7 +689,7 @@ function rebuildChart(blockId) {
 
 function setChartWindow(val) {
   State.chartWindow = parseInt(val);
-  const maxPts = State.chartWindow * 2;
+  const maxPts = State.chartWindow * 30;
   Object.keys(State.chartData).forEach(id => {
     const cd = State.chartData[id];
     while (cd.sp.length > maxPts) { cd.sp.shift(); cd.pv.shift(); cd.out.shift(); cd.labels.shift(); }

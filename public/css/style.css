@@ -279,6 +279,7 @@ label { font-size: 11px; font-weight: 500; color: var(--text-2); }
 .input-row .form-group { flex: 1; }
 
 select.input { cursor: pointer; }
+select option { color: #0f172a; background: #fff; }
 
 /* ── Range Input ─────────────────────────────────── */
 input[type="range"] {

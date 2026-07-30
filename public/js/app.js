@@ -1222,6 +1222,28 @@ function dlLoadSettings() {
   dlRefreshLogs();
 }
 
+async function scanDrives() {
+  try {
+    toast('Scanning for USB drives...', 'info');
+    const res = await api('GET', '/api/drives');
+    const dl = document.getElementById('driveList');
+    if (!dl) return;
+    dl.innerHTML = '';
+    if (res.drives && res.drives.length > 0) {
+      res.drives.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        dl.appendChild(opt);
+      });
+      toast(`Found ${res.drives.length} location(s). Click the input box to see them.`, 'success');
+    } else {
+      toast('No external drives found', 'warning');
+    }
+  } catch(e) {
+    toast('Failed to scan drives', 'error');
+  }
+}
+
 function dlSaveSettings() {
   const sel = document.getElementById('dlTopicSelect');
   if (!sel || !sel.value) {

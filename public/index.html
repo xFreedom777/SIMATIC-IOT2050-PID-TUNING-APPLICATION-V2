@@ -508,8 +508,12 @@
                 </div>
 
                 <div class="form-group" style="margin-top:15px">
-                  <label>Storage Location Path (Leave blank for default: /logs)</label>
-                  <input class="input" type="text" id="dlPath" placeholder="/media/usb or C:\Logs">
+                  <label style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Storage Location Path (Leave blank for default: ./logs)</span>
+                    <button class="btn btn-ghost btn-xs" onclick="scanDrives()" type="button">🔍 Scan USB</button>
+                  </label>
+                  <input class="input" type="text" id="dlPath" list="driveList" placeholder="/media/usb or C:\Logs">
+                  <datalist id="driveList"></datalist>
                   <p class="text-xs text-muted" style="margin-top:4px">Server needs write permission to this directory</p>
                 </div>
 

@@ -593,6 +593,39 @@ app.post('/api/system/time', (req, res) => {
 // Start Server
 // ═══════════════════════════════════════════════
 // ── Data Logging APIs ──
+app.get('/api/drives', (req, res) => {
+  const drives = [];
+  try {
+    const os = require('os');
+    if (os.platform() === 'win32') {
+      const letters = 'CDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let i = 0; i < letters.length; i++) {
+        try { fs.accessSync(letters[i] + ':\\'); drives.push(letters[i] + ':\\'); } catch(e) {}
+      }
+    } else {
+      ['/media', '/mnt'].forEach(base => {
+        if (fs.existsSync(base)) {
+          fs.readdirSync(base).forEach(item => {
+            const full = path.join(base, item);
+            try {
+              if (fs.statSync(full).isDirectory()) {
+                drives.push(full);
+                if (base === '/media') {
+                  fs.readdirSync(full).forEach(sub => {
+                    const subFull = path.join(full, sub);
+                    try { if (fs.statSync(subFull).isDirectory()) drives.push(subFull); } catch(e){}
+                  });
+                }
+              }
+            } catch(e) {}
+          });
+        }
+      });
+    }
+  } catch (err) { console.error('Drive detect error:', err); }
+  res.json({ drives });
+});
+
 app.get('/api/logs/:id', (req, res) => {
   const b = blocks[req.params.id];
   if (!b) return res.status(404).json({ error: 'Block not found' });

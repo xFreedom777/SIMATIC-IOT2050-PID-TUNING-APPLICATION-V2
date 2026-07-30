@@ -134,6 +134,8 @@ function onData(msg) {
   if (blockId === State.selectedBlockId) updateLiveDisplay(sp, pv, output, mode, state, errorBits);
   pushChartData(blockId, sp, pv, output, msg.timestamp);
   
+  if (typeof dlUpdateLive === 'function') dlUpdateLive(msg);
+  
   // Alarm History Detection
   const prevErr = State.lastErrorBits[blockId] || 0;
   if (errorBits !== prevErr) {
@@ -388,6 +390,8 @@ function renderBlockList() {
       <button class="btn btn-xs btn-ghost block-del" onclick="deleteBlock('${id}',event)">✕</button>
     </div>`;
   }).join('');
+  
+  if (typeof dlUpdateTopicList === 'function') dlUpdateTopicList();
 }
 
 function selectBlock(id) {
@@ -1179,4 +1183,171 @@ function restartSystem() {
       })
       .catch(err => toast('Connection error during restart.', 'error'));
   }
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOGGING LOGIC
+// ═══════════════════════════════════════════════
+
+function dlUpdateTopicList() {
+  const sel = document.getElementById('dlTopicSelect');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">-- Select Loop --</option>';
+  Object.values(State.blocks).forEach(b => {
+    sel.innerHTML += `<option value="${b.id}">${b.name} (DB${b.dbNumber})</option>`;
+  });
+  if (State.blocks[currentVal]) sel.value = currentVal;
+}
+
+function dlLoadSettings() {
+  const sel = document.getElementById('dlTopicSelect');
+  if (!sel || !sel.value) return;
+  const b = State.blocks[sel.value];
+  if (!b) return;
+  
+  document.getElementById('dlInterval').value = b.logInterval || 5;
+  document.getElementById('dlAutoClear').value = b.logAutoClearMonths || 1;
+  document.getElementById('dlPath').value = b.logPath || '';
+  
+  dlRefreshLogs();
+}
+
+function dlSaveSettings() {
+  const sel = document.getElementById('dlTopicSelect');
+  if (!sel || !sel.value) {
+    toast('Please select a topic first', 'error');
+    return;
+  }
+  
+  const payload = {
+    logInterval: document.getElementById('dlInterval').value,
+    logAutoClearMonths: document.getElementById('dlAutoClear').value,
+    logPath: document.getElementById('dlPath').value
+  };
+  
+  api('PUT', `/api/blocks/${sel.value}`, payload)
+    .then(res => {
+      if (res.success) {
+        toast('Logging settings saved successfully!', 'success');
+      }
+    });
+}
+
+function dlRefreshLogs() {
+  const sel = document.getElementById('dlTopicSelect');
+  if (!sel || !sel.value) return;
+  
+  api('GET', `/api/logs/${sel.value}`)
+    .then(res => {
+      const tbody = document.getElementById('dlLogsTable');
+      if (!res.logs || res.logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted)">No logs found for this topic</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = '';
+      res.logs.forEach(log => {
+        const date = new Date(log.mtime).toLocaleString('th-TH');
+        const sizeKb = (log.size / 1024).toFixed(1);
+        tbody.innerHTML += `
+          <tr>
+            <td>
+              <div style="color:var(--text-1)">${date}</div>
+              <div class="text-xs text-muted">${log.filename}</div>
+            </td>
+            <td style="text-align:right">${sizeKb} KB</td>
+            <td style="text-align:center">
+              <a href="/api/logs/download/${sel.value}?file=${log.filename}" class="btn btn-primary btn-sm" style="display:inline-block; padding:4px 8px; text-decoration:none" download>⬇️ CSV</a>
+            </td>
+          </tr>
+        `;
+      });
+    });
+}
+
+function dlUpdateLive(data) {
+  const sel = document.getElementById('dlTopicSelect');
+  if (sel && sel.value === data.blockId) {
+    const b = State.blocks[data.blockId];
+    if (!b) return;
+    document.getElementById('dlLiveSp').innerText = Number(data.sp).toFixed(2);
+    document.getElementById('dlLivePv').innerText = Number(data.pv).toFixed(2);
+    document.getElementById('dlLiveOut').innerText = Number(data.output).toFixed(2);
+    document.getElementById('dlUnitSp').innerText = b.spUnit || '';
+    document.getElementById('dlUnitPv').innerText = b.pvUnit || '';
+  }
+}
+
+function dlExportPDF() {
+  const sel = document.getElementById('dlTopicSelect');
+  if (!sel || !sel.value) {
+    toast('Please select a topic first', 'error');
+    return;
+  }
+  
+  if (typeof window.jspdf === 'undefined') {
+    toast('PDF Library not loaded. Check internet or local files.', 'error');
+    return;
+  }
+  
+  api('GET', `/api/logs/${sel.value}`)
+    .then(async res => {
+      if (!res.logs || res.logs.length === 0) {
+        toast('No logs available to export.', 'error');
+        return;
+      }
+      
+      const latestFile = res.logs[0].filename;
+      toast('Generating PDF summary...', 'info');
+      
+      try {
+        const response = await fetch(`/api/logs/download/${sel.value}?file=${latestFile}`);
+        const csvText = await response.text();
+        
+        const lines = csvText.trim().split('\\n');
+        if (lines.length < 2) {
+          toast('CSV is empty', 'error');
+          return;
+        }
+        
+        const headers = lines[0].split(',');
+        // Parse CSV data, keeping max 1000 rows for PDF summary to avoid memory crash
+        const maxRows = 1000;
+        const rowCount = lines.length - 1;
+        
+        // Take evenly distributed rows if > 1000
+        const step = Math.ceil(rowCount / maxRows);
+        const tableData = [];
+        for (let i = 1; i < lines.length; i += step) {
+          if (lines[i]) tableData.push(lines[i].split(','));
+        }
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text(\`Data Logging Report - \${State.blocks[sel.value].name}\`, 14, 15);
+        
+        doc.setFontSize(10);
+        doc.text(\`Source File: \${latestFile}\`, 14, 22);
+        doc.text(\`Total Data Points: \${rowCount} (Showing \${tableData.length} sampled points)\`, 14, 27);
+        doc.text(\`Generated: \${new Date().toLocaleString('th-TH')}\`, 14, 32);
+        
+        doc.autoTable({
+          startY: 40,
+          head: [headers],
+          body: tableData,
+          theme: 'striped',
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [7, 13, 26] }
+        });
+        
+        doc.save(\`Report_\${latestFile.replace('.csv', '')}.pdf\`);
+        toast('PDF Downloaded!', 'success');
+      } catch (err) {
+        toast('Error generating PDF', 'error');
+        console.error(err);
+      }
+    });
 }

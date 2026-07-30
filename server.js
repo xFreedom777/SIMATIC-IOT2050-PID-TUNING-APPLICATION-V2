@@ -147,7 +147,7 @@ app.get('/api/blocks', (req, res) => {
 });
 
 app.post('/api/blocks', (req, res) => {
-  const { name, dbNumber, pvUnit = '', spUnit = '', outputUnit = '%', offsets } = req.body;
+  const { name, dbNumber, pvUnit = '', spUnit = '', outputUnit = '%', offsets, logInterval = 5, logPath = '', logAutoClearMonths = 1 } = req.body;
   if (!dbNumber) return res.status(400).json({ error: 'DB number required' });
 
   const id = `blk_${Date.now()}`;
@@ -159,6 +159,9 @@ app.post('/api/blocks', (req, res) => {
     spUnit,
     outputUnit,
     offsets:    { ...defaultOffsets(), ...Object.fromEntries(Object.entries(offsets || {}).filter(([_, v]) => v !== '' && v !== null && v !== undefined)) },
+    logInterval: parseInt(logInterval) || 5,
+    logPath:     logPath,
+    logAutoClearMonths: parseInt(logAutoClearMonths) || 1,
     params:     {},
     lastData:   null,
   };
@@ -184,13 +187,16 @@ app.put('/api/blocks/:id', (req, res) => {
   const b = blocks[req.params.id];
   if (!b) return res.status(404).json({ error: 'Block not found' });
 
-  const { name, dbNumber, pvUnit, spUnit, outputUnit, offsets } = req.body;
+  const { name, dbNumber, pvUnit, spUnit, outputUnit, offsets, logInterval, logPath, logAutoClearMonths } = req.body;
   if (name)       b.name       = name;
   if (dbNumber)   b.dbNumber   = parseInt(dbNumber);
   if (pvUnit !== undefined)    b.pvUnit    = pvUnit;
   if (spUnit !== undefined)    b.spUnit    = spUnit;
   if (outputUnit !== undefined) b.outputUnit = outputUnit;
   if (offsets)    b.offsets    = { ...b.offsets, ...Object.fromEntries(Object.entries(offsets || {}).filter(([_, v]) => v !== '' && v !== null && v !== undefined)) };
+  if (logInterval !== undefined) b.logInterval = parseInt(logInterval) || 5;
+  if (logPath !== undefined)     b.logPath = logPath;
+  if (logAutoClearMonths !== undefined) b.logAutoClearMonths = parseInt(logAutoClearMonths) || 1;
 
   saveBlocks();
   res.json({ success: true, block: b });
@@ -442,14 +448,24 @@ function startPoller() {
         history[id].push(point);
         if (history[id].length > MAX_HISTORY) history[id].shift();
 
-        // ── Data Logger (write to CSV every 5s) ──
+        // ── Data Logger (write to CSV asynchronously) ──
         const now = Date.now();
-        if (now - (lastLogTime[id] || 0) >= LOG_INTERVAL_MS) {
+        const intervalMs = (blocks[id].logInterval || 5) * 1000;
+        if (now - (lastLogTime[id] || 0) >= intervalMs) {
           lastLogTime[id] = now;
           const dateStr = new Date(now).toISOString().slice(0, 10);
           const blockNameSafe = blocks[id].name.replace(/\W+/g, '_');
           const fileName = `log_${blockNameSafe}_${dateStr}.csv`;
-          const filePath = path.join(LOGS_DIR, fileName);
+          
+          let targetDir = LOGS_DIR;
+          if (blocks[id].logPath && blocks[id].logPath.trim() !== '') {
+            targetDir = blocks[id].logPath.trim();
+            if (!fs.existsSync(targetDir)) {
+              try { fs.mkdirSync(targetDir, { recursive: true }); }
+              catch(e) { targetDir = LOGS_DIR; } // fallback to default if error
+            }
+          }
+          const filePath = path.join(targetDir, fileName);
           
           let line = '';
           if (!fs.existsSync(filePath)) {
@@ -546,6 +562,105 @@ app.post('/api/system/time', (req, res) => {
 // ═══════════════════════════════════════════════
 // Start Server
 // ═══════════════════════════════════════════════
+// ── Data Logging APIs ──
+app.get('/api/logs/:id', (req, res) => {
+  const b = blocks[req.params.id];
+  if (!b) return res.status(404).json({ error: 'Block not found' });
+  
+  let targetDir = LOGS_DIR;
+  if (b.logPath && b.logPath.trim() !== '') {
+    targetDir = b.logPath.trim();
+  }
+  
+  if (!fs.existsSync(targetDir)) {
+    return res.json({ logs: [] });
+  }
+  
+  const blockNameSafe = b.name.replace(/\W+/g, '_');
+  const prefix = `log_${blockNameSafe}_`;
+  
+  fs.readdir(targetDir, (err, files) => {
+    if (err) return res.status(500).json({ error: 'Failed to read logs directory' });
+    const logs = [];
+    files.forEach(file => {
+      if (file.startsWith(prefix) && file.endsWith('.csv')) {
+        const filePath = path.join(targetDir, file);
+        const stats = fs.statSync(filePath);
+        logs.push({
+          filename: file,
+          size: stats.size,
+          mtime: stats.mtimeMs,
+          path: filePath
+        });
+      }
+    });
+    // Sort descending by modified time
+    logs.sort((a, b) => b.mtime - a.mtime);
+    res.json({ logs });
+  });
+});
+
+app.get('/api/logs/download/:id', (req, res) => {
+  const b = blocks[req.params.id];
+  if (!b) return res.status(404).json({ error: 'Block not found' });
+  
+  const filename = req.query.file;
+  if (!filename) return res.status(400).json({ error: 'File name required' });
+  
+  let targetDir = LOGS_DIR;
+  if (b.logPath && b.logPath.trim() !== '') {
+    targetDir = b.logPath.trim();
+  }
+  
+  const filePath = path.join(targetDir, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  
+  res.download(filePath, filename);
+});
+
+// ── Auto-Clear Logs Routine ──
+function autoClearLogs() {
+  console.log('[Auto-Clear] Running log cleanup task...');
+  const now = Date.now();
+  Object.values(blocks).forEach(b => {
+    const months = b.logAutoClearMonths || 1;
+    const maxAgeMs = months * 30 * 24 * 60 * 60 * 1000;
+    
+    let targetDir = LOGS_DIR;
+    if (b.logPath && b.logPath.trim() !== '') {
+      targetDir = b.logPath.trim();
+    }
+    
+    if (!fs.existsSync(targetDir)) return;
+    
+    const blockNameSafe = b.name.replace(/\W+/g, '_');
+    const prefix = `log_${blockNameSafe}_`;
+    
+    fs.readdir(targetDir, (err, files) => {
+      if (err) return;
+      files.forEach(file => {
+        if (file.startsWith(prefix) && file.endsWith('.csv')) {
+          const filePath = path.join(targetDir, file);
+          fs.stat(filePath, (err, stats) => {
+            if (err) return;
+            if (now - stats.mtimeMs > maxAgeMs) {
+              fs.unlink(filePath, err => {
+                if (!err) console.log(`[Auto-Clear] Deleted old log: ${filePath}`);
+              });
+            }
+          });
+        }
+      });
+    });
+  });
+}
+
+// Run auto-clear on startup, then every 24 hours
+setTimeout(autoClearLogs, 5000);
+setInterval(autoClearLogs, 24 * 60 * 60 * 1000);
+
 server.listen(PORT, () => {
   console.log(`\n  ╔══════════════════════════════════════╗`);
   console.log(`  ║   PID Tuning App  •  IOT2050 Ready   ║`);

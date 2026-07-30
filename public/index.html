@@ -221,7 +221,8 @@
         <button class="tab-btn active" data-tab="trend" onclick="switchTab('trend')">📈 Trend</button>
         <button class="tab-btn" data-tab="params" onclick="switchTab('params')">⚙ Parameters</button>
         <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Dashboard</button>
-        <button class="tab-btn" data-tab="simulation" onclick="switchTab('simulation')">🔬 Simulation</button>
+        <button class="tab-btn" data-tab="simulation" onclick="switchTab('simulation')">⚙️ Simulation</button>
+        <button class="tab-btn" data-tab="datalogging" onclick="switchTab('datalogging')">📁 Data Logging</button>
       </div>
 
       <!-- Tab Content -->
@@ -465,6 +466,110 @@
           </div>
         </div>
 
+        <!-- ── DATA LOGGING ── -->
+        <div class="tab-panel" id="tab-datalogging">
+          <div class="sim-scroll">
+            <div class="sim-grid">
+              
+              <!-- Logging Settings -->
+              <div class="card">
+                <div class="card-title">⚙️ Logging Configuration</div>
+                
+                <div class="form-group" style="margin-top:15px">
+                  <label>Select Topic (PID Loop)</label>
+                  <select class="input" id="dlTopicSelect" onchange="dlLoadSettings()">
+                    <option value="">-- Select Loop --</option>
+                  </select>
+                </div>
+                
+                <div class="row" style="margin-top:15px">
+                  <div class="form-group" style="flex:1">
+                    <label>Stamp Interval</label>
+                    <select class="input" id="dlInterval">
+                      <option value="1">1 Second</option>
+                      <option value="5">5 Seconds</option>
+                      <option value="10">10 Seconds</option>
+                      <option value="30">30 Seconds</option>
+                      <option value="60">1 Minute</option>
+                      <option value="300">5 Minutes</option>
+                      <option value="3600">1 Hour</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="flex:1">
+                    <label>Auto-Clear History</label>
+                    <select class="input" id="dlAutoClear">
+                      <option value="1">Older than 1 Month</option>
+                      <option value="3">Older than 3 Months</option>
+                      <option value="6">Older than 6 Months</option>
+                      <option value="12">Older than 12 Months</option>
+                      <option value="24">Older than 24 Months</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-top:15px">
+                  <label>Storage Location Path (Leave blank for default: /logs)</label>
+                  <input class="input" type="text" id="dlPath" placeholder="/media/usb or C:\Logs">
+                  <p class="text-xs text-muted" style="margin-top:4px">Server needs write permission to this directory</p>
+                </div>
+
+                <div class="row" style="margin-top:15px; justify-content:flex-end">
+                  <button class="btn btn-primary btn-sm" onclick="dlSaveSettings()">💾 Save Settings</button>
+                </div>
+              </div>
+
+              <!-- Export & Downloads -->
+              <div class="card">
+                <div class="card-title">📥 Export & Downloads</div>
+                <div class="row between" style="margin-top:15px; margin-bottom:15px">
+                  <button class="btn btn-ghost btn-sm" style="color:var(--cyan); border:1px solid var(--cyan)" onclick="dlRefreshLogs()">🔄 Refresh List</button>
+                  <div class="row">
+                    <button class="btn btn-amber btn-sm" onclick="dlExportPDF()">📄 Export Latest to PDF</button>
+                  </div>
+                </div>
+                
+                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                  <table class="data-table" style="width:100%">
+                    <thead>
+                      <tr>
+                        <th>Date / File Name</th>
+                        <th style="text-align:right">Size</th>
+                        <th style="text-align:center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dlLogsTable">
+                      <tr><td colspan="3" style="text-align:center;color:var(--text-muted)">Select a topic to view logs</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Live Data Preview -->
+              <div class="card" style="grid-column: 1 / -1;">
+                <div class="card-title">🟢 Live Data Preview (Currently Logging)</div>
+                <div class="hero-stats" style="margin-top:15px">
+                  <div class="stat-box">
+                    <div class="stat-label">SETPOINT (SP)</div>
+                    <div class="stat-val text-cyan" id="dlLiveSp">0.00</div>
+                    <div class="stat-unit" id="dlUnitSp">-</div>
+                  </div>
+                  <div class="stat-box">
+                    <div class="stat-label">PROCESS VALUE (PV)</div>
+                    <div class="stat-val text-green" id="dlLivePv">0.00</div>
+                    <div class="stat-unit" id="dlUnitPv">-</div>
+                  </div>
+                  <div class="stat-box">
+                    <div class="stat-label">OUTPUT</div>
+                    <div class="stat-val text-amber" id="dlLiveOut">0.00</div>
+                    <div class="stat-unit">%</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
       </div><!-- /tab-content -->
     </main>
   </div><!-- /layout -->
@@ -608,8 +713,10 @@
 </script>
 
     <!-- Scripts -->
-<script src="/js/chart.js?v=10"></script>
-<script src="/js/app.js?v=10"></script>
+<script src="/js/jspdf.umd.min.js"></script>
+<script src="/js/jspdf.plugin.autotable.min.js"></script>
+<script src="/js/chart.js?v=11"></script>
+<script src="/js/app.js?v=11"></script>
   <!-- Time Setup Modal -->
   <div class="modal-overlay" id="timeModal" style="display:none" onclick="closeModal('timeModal')">
     <div class="modal" onclick="event.stopPropagation()">

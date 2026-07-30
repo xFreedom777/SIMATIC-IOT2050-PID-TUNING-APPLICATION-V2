@@ -781,6 +781,7 @@ function initDashCharts() {
         gridLines: { color: 'rgba(255,255,255,0.04)' }
       }],
       yAxes: [{
+        type: 'linear',
         ticks: { fontColor: '#4a5a75', fontSize: 9 },
         gridLines: { color: 'rgba(255,255,255,0.04)' }
       }]

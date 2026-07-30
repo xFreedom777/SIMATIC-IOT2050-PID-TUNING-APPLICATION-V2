@@ -940,7 +940,7 @@ function openOffsetModal() {
 function saveOffsets() {
   OFFSET_DEFS.forEach(def => {
     const el = document.getElementById(`ofs_${def.key}`);
-    if (el) currentOffsets[def.key] = parseInt(el.value) || 0;
+    if (el) currentOffsets[def.key] = parseFloat(el.value) || 0;
   });
   if (State.selectedBlockId) {
     State.blocks[State.selectedBlockId].offsets = { ...currentOffsets };

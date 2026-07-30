@@ -60,14 +60,19 @@ class S7Client {
 
   // Build nodes7 tag string
   _tag(db, offset, type, bit = 0) {
+    let byte = Math.floor(offset);
+    let myBit = bit;
+    if (offset !== byte) {
+      myBit = Math.round((offset - byte) * 10);
+    }
     switch (type) {
-      case 'REAL':  return `DB${db},REAL${offset}`;
-      case 'INT':   return `DB${db},INT${offset}`;
-      case 'DINT':  return `DB${db},DINT${offset}`;
-      case 'WORD':  return `DB${db},WORD${offset}`;
-      case 'DWORD': return `DB${db},DWORD${offset}`;
-      case 'BOOL':  return `DB${db},X${offset}.${bit}`;
-      default:      return `DB${db},REAL${offset}`;
+      case 'REAL':  return `DB${db},REAL${byte}`;
+      case 'INT':   return `DB${db},INT${byte}`;
+      case 'DINT':  return `DB${db},DINT${byte}`;
+      case 'WORD':  return `DB${db},WORD${byte}`;
+      case 'DWORD': return `DB${db},DWORD${byte}`;
+      case 'BOOL':  return `DB${db},X${byte}.${myBit}`;
+      default:      return `DB${db},REAL${byte}`;
     }
   }
 

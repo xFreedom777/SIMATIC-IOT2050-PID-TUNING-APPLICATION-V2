@@ -1327,12 +1327,12 @@ function dlExportPDF() {
         const doc = new jsPDF();
         
         doc.setFontSize(16);
-        doc.text(\`Data Logging Report - \${State.blocks[sel.value].name}\`, 14, 15);
+        doc.text(`Data Logging Report - ${State.blocks[sel.value].name}`, 14, 15);
         
         doc.setFontSize(10);
-        doc.text(\`Source File: \${latestFile}\`, 14, 22);
-        doc.text(\`Total Data Points: \${rowCount} (Showing \${tableData.length} sampled points)\`, 14, 27);
-        doc.text(\`Generated: \${new Date().toLocaleString('th-TH')}\`, 14, 32);
+        doc.text(`Source File: ${latestFile}`, 14, 22);
+        doc.text(`Total Data Points: ${rowCount} (Showing ${tableData.length} sampled points)`, 14, 27);
+        doc.text(`Generated: ${new Date().toLocaleString('th-TH')}`, 14, 32);
         
         doc.autoTable({
           startY: 40,
@@ -1343,7 +1343,7 @@ function dlExportPDF() {
           headStyles: { fillColor: [7, 13, 26] }
         });
         
-        doc.save(\`Report_\${latestFile.replace('.csv', '')}.pdf\`);
+        doc.save(`Report_${latestFile.replace('.csv', '')}.pdf`);
         toast('PDF Downloaded!', 'success');
       } catch (err) {
         toast('Error generating PDF', 'error');

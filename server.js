@@ -456,67 +456,78 @@ app.get('/api/tune/imc', (req, res) => {
 // ═══════════════════════════════════════════════
 // Polling Loop (500ms)
 // ═══════════════════════════════════════════════
+let isPolling = false;
 function startPoller() {
   stopPoller();
   pollerTimer = setInterval(async () => {
-    for (const id of Object.keys(blocks)) {
-      try {
-        let data = null;
+    if (isPolling) return; // Prevent callback stacking if PLC response is delayed
+    isPolling = true;
+    try {
+      for (const id of Object.keys(blocks)) {
+        if (blocks[id].disabled) continue; // Optional skip if loop is disabled
+        try {
+          let data = null;
 
-        if (appMode === 'plc' && s7) {
-          data = await s7.readMonitorValues(blocks[id].dbNumber, blocks[id].offsets);
-        } else if (appMode === 'simulation' && sim) {
-          data = sim.step(id);
-        }
+          if (appMode === 'plc' && s7) {
+            data = await s7.readMonitorValues(blocks[id].dbNumber, blocks[id].offsets);
+          } else if (appMode === 'simulation' && sim) {
+            data = sim.step(id);
+          }
 
-        if (!data) continue;
+          if (!data) continue;
 
-        const point = { ...data, timestamp: Date.now() };
-        blocks[id].lastData = point;
+          const point = { ...data, timestamp: Date.now() };
+          blocks[id].lastData = point;
 
-        if (!history[id]) history[id] = [];
-        history[id].push(point);
-        if (history[id].length > MAX_HISTORY) history[id].shift();
+          if (!history[id]) history[id] = [];
+          history[id].push(point);
+          if (history[id].length > MAX_HISTORY) history[id].shift();
 
-        // ── Data Logger (write to CSV asynchronously) ──
-        const now = Date.now();
-        const intervalMs = (blocks[id].logInterval || 5) * 1000;
-        if (now - (lastLogTime[id] || 0) >= intervalMs) {
-          lastLogTime[id] = now;
-          const dateStr = new Date(now).toISOString().slice(0, 10);
-          const blockNameSafe = blocks[id].name.replace(/\W+/g, '_');
-          const fileName = `log_${blockNameSafe}_${dateStr}.csv`;
-          
-          let targetDir = LOGS_DIR;
-          if (blocks[id].logPath && blocks[id].logPath.trim() !== '') {
-            targetDir = blocks[id].logPath.trim();
-            if (!fs.existsSync(targetDir)) {
-              try { fs.mkdirSync(targetDir, { recursive: true }); }
-              catch(e) { targetDir = LOGS_DIR; } // fallback to default if error
+          // ── Data Logger (write to CSV asynchronously) ──
+          const now = Date.now();
+          const intervalMs = (blocks[id].logInterval || 5) * 1000;
+          if (now - (lastLogTime[id] || 0) >= intervalMs) {
+            lastLogTime[id] = now;
+            const dateStr = new Date(now).toISOString().slice(0, 10);
+            const blockNameSafe = blocks[id].name.replace(/\W+/g, '_');
+            const fileName = `log_${blockNameSafe}_${dateStr}.csv`;
+            
+            let targetDir = LOGS_DIR;
+            if (blocks[id].logPath && blocks[id].logPath.trim() !== '') {
+              targetDir = blocks[id].logPath.trim();
+              if (!fs.existsSync(targetDir)) {
+                try { fs.mkdirSync(targetDir, { recursive: true }); }
+                catch(e) { targetDir = LOGS_DIR; } // fallback to default if error
+              }
             }
+            const filePath = path.join(targetDir, fileName);
+            
+            let line = '';
+            if (!fs.existsSync(filePath)) {
+              line += 'Time,Setpoint,ProcessValue,Output,Mode,State,ErrorBits\n';
+            }
+            const timeStr = new Date(now).toISOString().replace('T', ' ').substring(0, 19);
+            const { sp, pv, output, mode, state, errorBits } = point;
+            const fSp = Number(sp||0).toFixed(2);
+            const fPv = Number(pv||0).toFixed(2);
+            const fOut = Number(output||0).toFixed(2);
+            line += `${timeStr},${fSp},${fPv},${fOut},${mode},${state},${errorBits||0}\n`;
+            
+            fs.appendFile(filePath, line, (err) => {
+              if (err) console.error(`[Logger] Failed to write log for ${id}:`, err);
+            });
           }
-          const filePath = path.join(targetDir, fileName);
-          
-          let line = '';
-          if (!fs.existsSync(filePath)) {
-            line += 'Time,Setpoint,ProcessValue,Output,Mode,State,ErrorBits\n';
-          }
-          const timeStr = new Date(now).toISOString();
-          const { sp, pv, output, mode, state, errorBits } = point;
-          line += `${timeStr},${sp},${pv},${output},${mode},${state},${errorBits||0}\n`;
-          
-          fs.appendFile(filePath, line, (err) => {
-            if (err) console.error(`[Logger] Failed to write log for ${id}:`, err);
-          });
-        }
 
-        broadcast({ type: 'data', blockId: id, ...point });
-      } catch (err) {
-        console.error(`[Poll] ${id}:`, err.message);
-        if (appMode === 'plc') {
-          broadcast({ type: 'error', blockId: id, message: err.message });
+          broadcast({ type: 'data', blockId: id, ...point });
+        } catch (err) {
+          console.error(`[Poll] ${id}:`, err.message);
+          if (appMode === 'plc') {
+            broadcast({ type: 'error', blockId: id, message: err.message });
+          }
         }
       }
+    } finally {
+      isPolling = false;
     }
   }, POLL_MS);
 }
@@ -624,6 +635,27 @@ app.get('/api/drives', (req, res) => {
     }
   } catch (err) { console.error('Drive detect error:', err); }
   res.json({ drives });
+});
+
+// ── USB Management API ──
+app.get('/api/usb/status', (req, res) => {
+  require('child_process').exec('mount | grep /media/usb', (err, stdout) => {
+    res.json({ mounted: !err && stdout.trim().length > 0 });
+  });
+});
+
+app.post('/api/usb/mount', (req, res) => {
+  require('child_process').exec('mount /dev/sda1 /media/usb', (err, stdout, stderr) => {
+    if (err) return res.status(500).json({ error: stderr || err.message });
+    res.json({ success: true });
+  });
+});
+
+app.post('/api/usb/eject', (req, res) => {
+  require('child_process').exec('sync && umount /media/usb', (err, stdout, stderr) => {
+    if (err) return res.status(500).json({ error: stderr || err.message });
+    res.json({ success: true });
+  });
 });
 
 app.get('/api/logs/:id', (req, res) => {

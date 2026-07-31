@@ -522,6 +522,21 @@
                 </div>
               </div>
 
+              <!-- USB Management -->
+              <div class="card">
+                <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>🔌 USB Drive Management</span>
+                  <span id="usbStatusBadge" style="font-size:12px; padding:4px 8px; border-radius:4px; background:var(--bg-lighter); color:var(--text-muted)">Checking...</span>
+                </div>
+                <p class="text-xs text-muted" style="margin-top:10px; margin-bottom:15px">
+                  Click Mount when you insert a new flash drive. Click Eject before removing it to prevent data loss.
+                </p>
+                <div class="row" style="gap:10px">
+                  <button class="btn btn-primary" style="flex:1" onclick="usbMount()">🔌 Mount USB</button>
+                  <button class="btn btn-danger" style="flex:1" onclick="usbEject()">⏏️ Eject Safely</button>
+                </div>
+              </div>
+
               <!-- Export & Downloads -->
               <div class="card">
                 <div class="card-title">📥 Export & Downloads</div>

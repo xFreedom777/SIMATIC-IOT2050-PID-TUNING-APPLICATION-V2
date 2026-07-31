@@ -246,9 +246,9 @@ async function fetchStatus() {
     updateStatusUI();
     
     if (data.plcConfig) {
-      document.getElementById('plcIp').value = data.plcConfig.plcIp || '192.168.1.10';
-      document.getElementById('plcRack').value = data.plcConfig.plcRack || 0;
-      document.getElementById('plcSlot').value = data.plcConfig.plcSlot || 0;
+      document.getElementById('plcIp').value = localStorage.getItem('plcIp') || data.plcConfig.plcIp || '192.168.1.10';
+      document.getElementById('plcRack').value = localStorage.getItem('plcRack') || data.plcConfig.plcRack || 0;
+      document.getElementById('plcSlot').value = localStorage.getItem('plcSlot') || data.plcConfig.plcSlot || 0;
     }
     
     const bdata = await api('GET', '/api/blocks');
@@ -274,8 +274,14 @@ async function toggleConnect() {
     catch (e) { toast(e.message, 'error'); }
   } else {
     const ip   = document.getElementById('plcIp').value.trim();
-    const rack = document.getElementById('plcRack').value;
-    const slot = document.getElementById('plcSlot').value;
+    const rack = parseInt(document.getElementById('plcRack').value, 10);
+    const slot = parseInt(document.getElementById('plcSlot').value, 10);
+
+    // Save to browser cache so it remembers on refresh
+    localStorage.setItem('plcIp', ip);
+    localStorage.setItem('plcRack', rack);
+    localStorage.setItem('plcSlot', slot);
+    
     if (!ip) return toast('Enter PLC IP address', 'warning');
     const btn = document.getElementById('connectBtn');
     btn.textContent = '⏳ Connecting...';
@@ -1337,10 +1343,9 @@ function dlExportPDF() {
       toast('Generating PDF summary...', 'info');
       
       try {
-        const response = await fetch(`/api/logs/download/${sel.value}?file=${latestFile}`);
-        const csvText = await response.text();
+        const fileContent = await fetch(`/api/logs/download/${sel.value}?file=${latestFile}`).then(r => r.text());
+        const lines = fileContent.split('\n').filter(l => l.trim() !== '');
         
-        const lines = csvText.trim().split('\\n');
         if (lines.length < 2) {
           toast('CSV is empty', 'error');
           return;
@@ -1355,8 +1360,33 @@ function dlExportPDF() {
         const step = Math.ceil(rowCount / maxRows);
         const tableData = [];
         for (let i = 1; i < lines.length; i += step) {
-          if (lines[i]) tableData.push(lines[i].split(','));
+          if (lines[i]) {
+            let row = lines[i].split(',');
+            // Format time: remove T and Z, e.g. 2026-07-31 08:29:30
+            if (row[0] && row[0].includes('T')) row[0] = row[0].replace('T', ' ').substring(0, 19);
+            // Truncate Setpoint, ProcessValue, Output to 2 decimals
+            for (let j=1; j<=3; j++) {
+               if (row[j] && !isNaN(row[j])) row[j] = Number(row[j]).toFixed(2);
+            }
+            tableData.push(row);
+          }
         }
+        
+        const logoBase64 = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } catch(e) { resolve(null); }
+          };
+          img.onerror = () => resolve(null);
+          img.src = '/logo.png';
+        });
         
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -1368,6 +1398,21 @@ function dlExportPDF() {
         doc.text(`Source File: ${latestFile}`, 14, 22);
         doc.text(`Total Data Points: ${rowCount} (Showing ${tableData.length} sampled points)`, 14, 27);
         doc.text(`Generated: ${new Date().toLocaleString('th-TH')}`, 14, 32);
+        
+        // Add header text on the left of the logo
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PIN MILL PLANT', 162, 14, { align: 'right' });
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text('GATE VALVE CONTROL AND MONITORING PROJECT', 162, 19, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+        
+        // Add logo image on the far right
+        if (logoBase64) {
+          doc.addImage(logoBase64, 'PNG', 165, 8.5, 30, 13.5);
+        }
         
         doc.autoTable({
           startY: 40,
@@ -1386,3 +1431,59 @@ function dlExportPDF() {
       }
     });
 }
+
+// ══════════════════════════════════════════════
+// USB Management
+// ══════════════════════════════════════════════
+function checkUsbStatus() {
+  fetch('/api/usb/status')
+    .then(r => r.json())
+    .then(data => {
+      const badge = document.getElementById('usbStatusBadge');
+      if (badge) {
+        if (data.mounted) {
+          badge.textContent = 'USB Mounted / Ready';
+          badge.style.background = 'rgba(34, 197, 94, 0.15)';
+          badge.style.color = '#22c55e';
+        } else {
+          badge.textContent = 'Not Mounted';
+          badge.style.background = 'rgba(239, 68, 68, 0.15)';
+          badge.style.color = '#ef4444';
+        }
+      }
+    })
+    .catch(err => console.error(err));
+}
+
+function usbMount() {
+  toast('Mounting USB...', 'info');
+  fetch('/api/usb/mount', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) toast('Mount Error: ' + data.error, 'error');
+      else {
+        toast('USB Mounted Successfully!', 'success');
+        checkUsbStatus();
+        dlRefreshLogs();
+      }
+    })
+    .catch(err => toast('Error mounting USB', 'error'));
+}
+
+function usbEject() {
+  toast('Ejecting safely... Please wait', 'info');
+  fetch('/api/usb/eject', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) toast('Eject Error: ' + data.error, 'error');
+      else {
+        toast('Ejected! You can safely remove the USB drive now.', 'success');
+        checkUsbStatus();
+      }
+    })
+    .catch(err => toast('Error ejecting USB', 'error'));
+}
+
+// Call status check periodically
+setInterval(checkUsbStatus, 5000);
+setTimeout(checkUsbStatus, 1000);

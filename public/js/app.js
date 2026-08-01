@@ -18,6 +18,8 @@ const State = {
   paramLocked:     true,   // locked by default
   alarms:          [],
   lastErrorBits:   {},
+  lowPerfMode:     false,
+  lastChartUpdate: 0
 };
 
 // ── PIN helpers (localStorage, base64 encoded — UX protection) ──
@@ -672,7 +674,15 @@ function pushChartData(blockId, sp, pv, output, ts) {
     State.chart.data.datasets[0].data = cd.sp;
     State.chart.data.datasets[1].data = cd.pv;
     State.chart.data.datasets[2].data = cd.out;
-    State.chart.update();
+    if (State.lowPerfMode) {
+      const now = Date.now();
+      if (now - State.lastChartUpdate > 1000) {
+        State.chart.update('none'); // Update without animation
+        State.lastChartUpdate = now;
+      }
+    } else {
+      State.chart.update();
+    }
   }
 }
 
@@ -1486,4 +1496,24 @@ function usbEject() {
 
 // Call status check periodically
 setInterval(checkUsbStatus, 5000);
+
+// ════════════════════════════════════════════════
+// Low Performance Mode for IOT2050
+// ════════════════════════════════════════════════
+function toggleLowPerfMode() {
+  State.lowPerfMode = !State.lowPerfMode;
+  const btn = document.getElementById('perfToggleBtn');
+  if (State.lowPerfMode) {
+    document.body.classList.add('low-perf');
+    if (btn) btn.innerHTML = '🐢 Perf: Low';
+    if (btn) btn.classList.replace('btn-ghost', 'btn-amber');
+    toast('Low Performance Mode Enabled (Animations off, Chart throttled)', 'info');
+  } else {
+    document.body.classList.remove('low-perf');
+    if (btn) btn.innerHTML = '🚀 Perf: High';
+    if (btn) btn.classList.replace('btn-amber', 'btn-ghost');
+    toast('High Performance Mode Enabled', 'info');
+  }
+}
+
 setTimeout(checkUsbStatus, 1000);

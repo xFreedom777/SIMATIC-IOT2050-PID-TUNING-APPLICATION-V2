@@ -759,3 +759,20 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ── Connection form ─────────────────────────────── */
 .connect-form { display: flex; flex-direction: column; gap: 10px; }
+
+/* ════════════════════════════════════════════════
+   IOT2050 Low Performance Mode Overrides
+════════════════════════════════════════════════ */
+body.low-perf *, body.low-perf *:before, body.low-perf *:after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+}
+
+body.low-perf .btn {
+    transform: none !important;
+}
+
+body.low-perf .status-dot {
+    animation: none !important;
+}

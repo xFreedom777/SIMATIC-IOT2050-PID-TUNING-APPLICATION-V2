@@ -56,6 +56,7 @@ class S7Client {
     this.conn = null;
     this.connected = false;
     this.connectParams = null;
+    this.addedTags = new Set();
   }
 
   // Build nodes7 tag string
@@ -111,6 +112,7 @@ class S7Client {
     try { if (this.conn) this.conn.dropConnection(); } catch (_) {}
     this.conn = null;
     this.connected = false;
+    this.addedTags.clear();
   }
 
   // Generic multi-tag read
@@ -120,13 +122,14 @@ class S7Client {
       const keys = Object.keys(tags);
       const tagArr = keys.map(k => tags[k]);
       
-      // Clear all items manually from nodes7 internal state to prevent ghost tags
       this.conn.translationCb = (tag) => tag; // reset translations if any
-      this.conn.polledItems = [];
-      this.conn.polledReadSpace = [];
       
       try {
-        this.conn.addItems(tagArr);
+        const newTags = tagArr.filter(t => !this.addedTags.has(t));
+        if (newTags.length > 0) {
+          this.conn.addItems(newTags);
+          newTags.forEach(t => this.addedTags.add(t));
+        }
       } catch (err) {
         return reject(new Error(`addItems failed: ${err.message}`));
       }
@@ -177,6 +180,47 @@ class S7Client {
       errorBits: this._tag(db, o.errorBits,   'DWORD'),
     });
   }
+
+  // Read all blocks in a single batch request to dramatically reduce CPU & Network IO
+  async readAllBlocksMonitorValues(blocks) {
+    const tags = {};
+    for (const id of Object.keys(blocks)) {
+      if (blocks[id].disabled) continue;
+      const db = blocks[id].dbNumber;
+      const o = { ...DEFAULT_OFFSETS, ...blocks[id].offsets };
+      tags[`${id}_sp`]        = this._tag(db, o.setpoint,    'REAL');
+      tags[`${id}_pv`]        = this._tag(db, o.scaledInput, 'REAL');
+      tags[`${id}_output`]    = this._tag(db, o.output,      'REAL');
+      tags[`${id}_mode`]      = this._tag(db, o.mode,        'INT');
+      tags[`${id}_state`]     = this._tag(db, o.state,       'INT');
+      tags[`${id}_errorBits`] = this._tag(db, o.errorBits,   'DWORD');
+    }
+
+    if (Object.keys(tags).length === 0) return {};
+
+    const rawData = await this._read(tags);
+    
+    // Group the flat response back into individual block objects
+    const result = {};
+    for (const id of Object.keys(blocks)) {
+      if (blocks[id].disabled) continue;
+      // If the primary tag is missing/bad, we assume the whole block is unreadable this cycle
+      if (rawData[`${id}_sp`] === null) {
+        result[id] = null;
+        continue;
+      }
+      result[id] = {
+        sp:        rawData[`${id}_sp`],
+        pv:        rawData[`${id}_pv`],
+        output:    rawData[`${id}_output`],
+        mode:      rawData[`${id}_mode`],
+        state:     rawData[`${id}_state`],
+        errorBits: rawData[`${id}_errorBits`],
+      };
+    }
+    return result;
+  }
+
 
   // Read all tuning parameters
   async readPIDParams(db, offsets) {
